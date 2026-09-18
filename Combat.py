@@ -108,9 +108,8 @@ def run_battle(player, enemy, rng=None, auto=False, verbose=True):
 # ============================================================
 
 def _player_turn(player, enemy, rng, log, auto=False):
-    """Returns one of: 'ok', 'flee', 'enemy_dead', 'player_dead'"""
+    """Returns one of: 'ok', 'flee', 'enemy_dead', 'player_dead', 'item_used'"""
 
-    # ---- Skip turn if stunned/petrified/disarmed ----
     if player.has_status("disarmed") or player.has_status("stunned") or player.has_status("petrified"):
         skip_name = (
             "disarmed" if player.has_status("disarmed")
@@ -122,7 +121,6 @@ def _player_turn(player, enemy, rng, log, auto=False):
         _player_end_of_turn(player, log)
         return "ok"
 
-    # ---- Choose action ----
     if auto:
         spell_key = _auto_pick_spell(player, enemy)
         if spell_key is None:
@@ -130,19 +128,33 @@ def _player_turn(player, enemy, rng, log, auto=False):
             _player_end_of_turn(player, log)
             return "ok"
     else:
-        spell_key = _prompt_player_action(player, enemy, log)
-        if spell_key == "flee":
+        action = _prompt_player_action(player, enemy, rng, log)
+
+        if action == "flee":
             return "flee"
-        if spell_key is None:
+
+        if action is None:
             _player_end_of_turn(player, log)
             return "ok"
 
-    # ---- Cast ----
+        if action == "item_used":
+            # An item was used inside the prompt — consumes the turn
+            if not enemy.is_alive():
+                _handle_enemy_death(player, enemy, log)
+                log(f"  ★ {enemy.name} is defeated!")
+                return "enemy_dead"
+            _player_end_of_turn(player, log)
+            if not player.is_alive():
+                return "player_dead"
+            return "ok"
+
+        spell_key = action
+
+    # ---- Cast spell ----
     result = cast_spell(player, spell_key, enemy, rng=rng)
     for line in result["messages"]:
         log("  " + line)
 
-    # ---- Check enemy death ----
     if not enemy.is_alive():
         _handle_enemy_death(player, enemy, log)
         log(f"  ★ {enemy.name} is defeated!")
@@ -625,8 +637,11 @@ def _auto_pick_spell(player, enemy):
 # INTERACTIVE INPUT (used when auto=False)
 # ============================================================
 
-def _prompt_player_action(player, enemy, log):
-    """Show menu, read input. Returns spell_key or 'flee' or None."""
+def _prompt_player_action(player, enemy, rng, log):
+    """
+    Show menu, read input.
+    Returns: spell_key (str) | "flee" | "item_used" | None
+    """
     while True:
         log("")
         log(f"  {player.name}: HP {player.current_hp}/{player.max_hp()}  "
@@ -645,7 +660,11 @@ def _prompt_player_action(player, enemy, log):
             log(f"    {i}. {spell['name']:<14} ({cost} mana){affordable}")
             options.append(key)
 
-        log(f"    {len(options) + 1}. Flee")
+        item_count = _total_consumables(player)
+        item_label = f"Items ({item_count})" if item_count else "Items (empty)"
+
+        log(f"    I. {item_label}")
+        log(f"    F. Flee")
         log(f"    ?. Spell details")
         log(f"    0. Pass")
 
@@ -658,15 +677,95 @@ def _prompt_player_action(player, enemy, log):
             _show_spell_help(player, log)
             continue
 
+        if choice == "i":
+            result = _item_menu(player, enemy, rng, log)
+            if result == "item_used":
+                return "item_used"
+            # otherwise, loop back
+            continue
+
+        if choice in ("f", "flee"):
+            return "flee"
+
         if choice == "0":
             return None
+
         if choice.isdigit():
             idx = int(choice) - 1
             if 0 <= idx < len(options):
                 return options[idx]
-            if idx == len(options):
-                return "flee"
-        # Invalid input — loop back to menu
+
+def _total_consumables(player):
+    p = sum(player.inventory.get("potions", {}).values())
+    i = sum(player.inventory.get("items", {}).values())
+    return p + i
+
+
+def _item_menu(player, enemy, rng, log):
+    """
+    Show potions + combat items. If player picks one, use it and return "item_used".
+    Otherwise return None (loop back to main menu).
+    """
+    from Items import use_potion, use_combat_item
+    from Data import POTIONS, COMBAT_ITEMS
+
+    potions = player.inventory.get("potions", {})
+    items = player.inventory.get("items", {})
+
+    if not potions and not items:
+        log("  You have no items.")
+        input("  Press Enter to return. ")
+        return None
+
+    log("")
+    log("  ═══ USE AN ITEM ═══")
+    entries = []  # (category, key, label)
+
+    if potions:
+        log("  Potions:")
+        for k, count in potions.items():
+            name = POTIONS[k]["name"]
+            desc = POTIONS[k]["description"]
+            log(f"    {len(entries) + 1}. {name:<26} x{count}  — {desc}")
+            entries.append(("potions", k))
+
+    if items:
+        log("  Combat Items:")
+        for k, count in items.items():
+            name = COMBAT_ITEMS[k]["name"]
+            desc = COMBAT_ITEMS[k]["description"]
+            log(f"    {len(entries) + 1}. {name:<26} x{count}  — {desc}")
+            entries.append(("items", k))
+
+    log("    0. Back")
+
+    try:
+        choice = input("  > ").strip()
+    except (EOFError, KeyboardInterrupt):
+        return None
+
+    if choice == "0" or not choice.isdigit():
+        return None
+
+    idx = int(choice) - 1
+    if not (0 <= idx < len(entries)):
+        return None
+
+    category, key = entries[idx]
+
+    if category == "potions":
+        ok, msgs = use_potion(player, key)
+    else:
+        ok, msgs = use_combat_item(player, key, enemy, rng)
+
+    for m in msgs:
+        log("  " + m)
+
+    if not ok:
+        return None
+
+    # Turn consumed
+    return "item_used"
 
 def _show_spell_help(player, log):
     """Display details for each known spell."""
@@ -763,4 +862,3 @@ if __name__ == "__main__":
     rng2 = random.Random(7)
     result2 = run_battle(p2, e2, rng=rng2, auto=True, verbose=True)
     print(f"\nResult: {result2['result']} in {result2['turns']} turns.")
-
