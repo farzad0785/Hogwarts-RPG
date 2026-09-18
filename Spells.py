@@ -294,6 +294,14 @@ def _resolve_offensive(caster, spell, spell_key, target, rng, result):
 
     result["damage"] = actual_damage
 
+    # --- Reflect damage (Fire Crab's hot shell) ---
+    if hasattr(target, "reflect_damage_amount"):
+        reflect = target.reflect_damage_amount()
+        if reflect > 0 and hasattr(caster, "take_damage"):
+            caster.take_damage(reflect)
+            result["messages"].append(
+                f"  → {target.name}'s hot shell burns {caster.name} for {reflect} damage!"
+            )
     # ---------------------------------------------------------
     # DISPLAY MESSAGE
     # ---------------------------------------------------------
@@ -463,3 +471,4 @@ if __name__ == "__main__":
         if r["crit"]:
             print(f"  Seed {seed}: {r['messages'][0]}")
             break
+
