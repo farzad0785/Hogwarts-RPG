@@ -56,6 +56,7 @@ class Enemy:
         # Weakness / resistance
         self.weak_to = data.get("weak_to", {})   # {"fire": 1.5}
         self.requires = data.get("requires")     # e.g. "expecto_patronum"
+        self.no_streak = data.get("no_streak", False)
 
         # Rewards
         self.xp_reward = data["xp"]
@@ -69,6 +70,7 @@ class Enemy:
 
         # Per-battle state (things that reset each fight)
         self.used_specials = set()   # names of one-use specials already used
+        self.attack_uses = {}        # {attack_name: times_used}
         self.summons = []            # future use (Death Eater)
         self.slain = False           # set True when HP hits 0
 
@@ -197,6 +199,14 @@ class Enemy:
 
         return mult
 
+    def reflect_damage_amount(self):
+        """Fire Crab's hot shell reflects damage back at attackers."""
+        total = 0
+        for spec in self.specials:
+            if spec.get("name") == "hot_shell":
+                total += spec.get("reflect_damage", 0)
+        return total
+
     def flat_damage_reduction(self, element=None):
         """Thick Hide style flat reduction."""
         reduction = 0
@@ -205,13 +215,19 @@ class Enemy:
                 reduction += spec.get("physical_reduction", 0)
         return reduction
 
-    def bloodthirsty_bonus(self):
-        """Red Cap: +damage below 50% HP."""
+    def threshold_damage_bonus(self):
+        """
+        Bonus damage below HP threshold.
+        Applies to bloodthirsty (Red Cap), reckless (Gryffindor Rival),
+        insane (Bellatrix), and any future spec with 'threshold' + 'bonus_damage'.
+        """
+        bonus = 0
         for spec in self.specials:
-            if spec.get("name") == "bloodthirsty":
-                if self.hp_pct() < spec["threshold"]:
-                    return spec["bonus_damage"]
-        return 0
+            if "threshold" not in spec or "bonus_damage" not in spec:
+                continue
+            if self.hp_pct() < spec["threshold"]:
+                bonus += spec["bonus_damage"]
+        return bonus
 
     def frenzy_extra_attacks(self):
         """Werewolf: extra attacks below 30% HP."""
@@ -236,41 +252,63 @@ class Enemy:
     def choose_attack(self):
         """
         Pick an attack for this turn.
-        Returns an attack dict or None if the enemy has no options.
+        Handles: hp_threshold, mana_cost, uses, self-heal priority.
         """
         if not self.attacks:
             return None
 
-        # Filter by conditions
+        # --- Priority 1: self-heal if we need it ---
+        for atk in self.attacks:
+            if atk.get("vs") != "self":
+                continue
+            mana_cost = atk.get("mana_cost", 0)
+            if self.current_mana < mana_cost:
+                continue
+            max_uses = atk.get("uses")
+            if max_uses is not None:
+                if self.attack_uses.get(atk["name"], 0) >= max_uses:
+                    continue
+            # Only use if actually hurt
+            if self.hp_pct() < 0.5:
+                return atk
+
+        # --- Priority 2: strongest available offensive attack ---
         available = []
         for atk in self.attacks:
-            # hp_threshold: only usable below X% HP
+            if atk.get("vs") == "self":
+                continue
+
             threshold = atk.get("hp_threshold")
             if threshold is not None and self.hp_pct() >= threshold:
                 continue
 
-            # mana_cost
             mana_cost = atk.get("mana_cost", 0)
             if mana_cost and self.current_mana < mana_cost:
                 continue
 
+            max_uses = atk.get("uses")
+            if max_uses is not None:
+                if self.attack_uses.get(atk["name"], 0) >= max_uses:
+                    continue
+
             available.append(atk)
 
         if not available:
-            # Fall back to the first attack that doesn't need mana (if any)
+            # Fall back to any no-mana attack
             for atk in self.attacks:
+                if atk.get("vs") == "self":
+                    continue
                 if atk.get("mana_cost", 0) == 0:
                     threshold = atk.get("hp_threshold")
                     if threshold is None or self.hp_pct() < threshold:
                         return atk
             return None
 
-        # Simple AI:
-        # - Prefer strong attacks (higher damage) when available
-        # - Otherwise first available
-        # We keep it deterministic-ish for now; can add randomness later.
         available.sort(key=lambda a: a.get("damage", 0), reverse=True)
         return available[0]
+
+    def mark_attack_used(self, attack_name):
+        self.attack_uses[attack_name] = self.attack_uses.get(attack_name, 0) + 1
 
     def special_available(self, name):
         """Check if a one-use special is still available."""
@@ -427,3 +465,4 @@ if __name__ == "__main__":
         mana_gained, dot = rat.end_of_turn()
         print(f"  Turn {turn + 1}: dot={dot}, hp={rat.current_hp}, "
               f"statuses={[s['name'] for s in rat.statuses]}")
+
