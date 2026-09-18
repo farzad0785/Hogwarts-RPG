@@ -307,7 +307,9 @@ ENEMIES = {
         "pd": 8, "md": 8, "initiative_bonus": 0,
         "attacks": [],
         "special": None,
-        "xp": 5, "galleons": 1, "token_chance": 0.05,
+        "xp": 5, "galleons": 1, "token_chance": 0.0,   # no tokens
+        "no_streak": True,                             # doesn't count for streak
+        "hint": "No threats. Good for practice. *Does not increase win streak*"
     },
     "cornish_pixie": {
         "name": "Cornish Pixie",
@@ -319,6 +321,7 @@ ENEMIES = {
         ],
         "special": {"name": "erratic", "dodge_chance": 0.25},
         "xp": 10, "galleons": 2, "token_chance": 0.10,
+        "hint": "Erratic — 25% chance to dodge any attack.",
     },
     "garden_gnome": {
         "name": "Garden Gnome",
@@ -330,6 +333,57 @@ ENEMIES = {
         ],
         "special": {"name": "stubborn", "resist_spell": "flipendo", "multiplier": 0.5},
         "xp": 8, "galleons": 1, "token_chance": 0.08,
+        "hint": "Stubborn — takes half damage from Flipendo.",
+    },
+    "puffskein": {
+        "name": "Puffskein",
+        "tier": "very_weak",
+        "level": 1, "hp": 22, "mana": 0,
+        "pd": 8, "md": 8, "initiative_bonus": 0,
+        "attacks": [
+            {"name": "Hum", "to_hit_bonus": 2, "damage": 3, "vs": "pd"},
+        ],
+        "special": None,
+        "xp": 6, "galleons": 1, "token_chance": 0.05,
+        "hint": "Harmless. Just rolls over and hums.",
+    },
+    "bundimun": {
+        "name": "Bundimun",
+        "tier": "very_weak",
+        "level": 1, "hp": 16, "mana": 8,
+        "pd": 10, "md": 12, "initiative_bonus": 2,
+        "attacks": [
+            {"name": "Slime Splash", "to_hit_bonus": 4, "damage": 4, "vs": "pd",
+             "effect": {"name": "weakened", "chance": 1.0, "amount": -1}},
+        ],
+        "special": None,
+        "xp": 9, "galleons": 1, "token_chance": 0.08,
+        "hint": "Its slime weakens your next attack.",
+    },
+    "flobberworm": {
+        "name": "Flobberworm",
+        "tier": "very_weak",
+        "level": 1, "hp": 20, "mana": 0,
+        "pd": 12, "md": 6, "initiative_bonus": -3,
+        "attacks": [
+            {"name": "Flail", "to_hit_bonus": 1, "damage": 2, "vs": "pd"},
+        ],
+        "special": {"name": "lazy", "skip_chance": 0.5},
+        "xp": 5, "galleons": 1, "token_chance": 0.05,
+        "hint": "Mostly harmless — sometimes dozes off mid-fight.",
+    },
+    "chizpurfle": {
+        "name": "Chizpurfle",
+        "tier": "very_weak",
+        "level": 1, "hp": 14, "mana": 0,
+        "pd": 12, "md": 10, "initiative_bonus": 4,
+        "attacks": [
+            {"name": "Bite", "to_hit_bonus": 4, "damage": 3, "vs": "pd",
+             "mana_drain": 3},
+        ],
+        "special": {"name": "tiny", "to_hit_penalty": -2},
+        "xp": 10, "galleons": 1, "token_chance": 0.08,
+        "hint": "Drains 3 mana on every hit. Tiny (-2 to hit it).",
     },
 
     # --- WEAK ---
@@ -344,6 +398,7 @@ ENEMIES = {
         ],
         "special": None,
         "xp": 22, "galleons": 5, "token_chance": 0.20,
+        "hint": "Its bite can infect you (-2 HP/turn for 2 turns).",
     },
     "doxie": {
         "name": "Doxie",
@@ -356,6 +411,7 @@ ENEMIES = {
         ],
         "special": {"name": "tiny", "to_hit_penalty": -2},
         "xp": 25, "galleons": 6, "token_chance": 0.20,
+        "hint": "Tiny — all attacks against it have -2 to hit."
     },
     "hinkypunk": {
         "name": "Hinkypunk",
@@ -367,6 +423,58 @@ ENEMIES = {
         ],
         "special": {"name": "lure", "dc": 13, "uses": 1},
         "xp": 25, "galleons": 6, "token_chance": 0.20,
+        "hint": "Its Lure can force you to lose a turn. High Willpower helps."
+    },
+    "bowtruckle": {
+        "name": "Bowtruckle",
+        "tier": "weak",
+        "level": 2, "hp": 26, "mana": 10,
+        "pd": 15, "md": 12, "initiative_bonus": 6,
+        "attacks": [
+            {"name": "Sharp Fingers", "to_hit_bonus": 6, "damage": 7, "vs": "pd"},
+        ],
+        "special": {"name": "erratic", "dodge_chance": 0.25},
+        "xp": 24, "galleons": 6, "token_chance": 0.20,
+        "hint": "Fast and erratic — 25% chance to dodge.",
+    },
+    "niffler": {
+        "name": "Niffler",
+        "tier": "weak",
+        "level": 2, "hp": 25, "mana": 0,
+        "pd": 14, "md": 11, "initiative_bonus": 5,
+        "attacks": [
+            {"name": "Snatch", "to_hit_bonus": 5, "damage": 5, "vs": "pd",
+             "steal_gold": 3},
+        ],
+        "special": None,
+        "xp": 24, "galleons": 5, "token_chance": 0.20,
+        "hint": "Steals 3 Galleons every time it hits you.",
+    },
+    "young_mandrake": {
+        "name": "Young Mandrake",
+        "tier": "weak",
+        "level": 2, "hp": 28, "mana": 12,
+        "pd": 12, "md": 13, "initiative_bonus": 1,
+        "attacks": [
+            {"name": "Piercing Scream", "to_hit_bonus": 5, "damage": 7, "vs": "md",
+             "save": {"attr": "willpower", "dc": 12},
+             "effect": {"name": "stunned", "chance": 1.0}},
+        ],
+        "special": None,
+        "xp": 25, "galleons": 6, "token_chance": 0.20,
+        "hint": "Its scream forces a Willpower save or you lose a turn.",
+    },
+    "fire_crab": {
+        "name": "Fire Crab",
+        "tier": "weak",
+        "level": 2, "hp": 30, "mana": 15,
+        "pd": 16, "md": 14, "initiative_bonus": 2,
+        "attacks": [
+            {"name": "Flame Jet", "to_hit_bonus": 5, "damage": 9, "vs": "md"},
+        ],
+        "special": {"name": "hot_shell", "reflect_damage": 2},
+        "xp": 26, "galleons": 7, "token_chance": 0.20,
+        "hint": "Its hot shell reflects 2 damage every time you hit it.",
     },
 
     # --- AVERAGE ---
@@ -382,6 +490,7 @@ ENEMIES = {
         ],
         "special": {"name": "bloodthirsty", "threshold": 0.5, "bonus_damage": 3},
         "xp": 45, "galleons": 12, "token_chance": 0.35,
+        "hint": "Gets angrier below 50% HP — deals more damage.",
     },
     "slytherin_rival": {
         "name": "Slytherin Dueling Rival",
@@ -395,6 +504,7 @@ ENEMIES = {
         ],
         "special": {"name": "tactical"},
         "xp": 50, "galleons": 15, "token_chance": 0.40,
+        "hint": "Uses the same spells you do. Beware Expelliarmus.",
     },
     "acromantula_hatchling": {
         "name": "Acromantula Hatchling",
@@ -408,6 +518,51 @@ ENEMIES = {
         "special": {"name": "web_shot", "uses": 1, "agility_penalty": -2, "duration": 2},
         "weak_to": {"fire": 1.5},
         "xp": 48, "galleons": 14, "token_chance": 0.35,
+        "hint": "Weak to fire (+50% damage). Its web lowers your Agility.",
+    },
+    "gryffindor_rival": {
+        "name": "Gryffindor Dueling Rival",
+        "tier": "average",
+        "level": 3, "hp": 48, "mana": 40,
+        "pd": 14, "md": 14, "initiative_bonus": 6,
+        "attacks": [
+            {"name": "Incendio", "to_hit_bonus": 7, "damage": 14, "vs": "md",
+             "effect": {"name": "burn", "chance": 1.0}},
+            {"name": "Expelliarmus", "to_hit_bonus": 7, "damage": 5, "vs": "md",
+             "effect": {"name": "disarmed", "chance": 1.0}},
+        ],
+        "special": {"name": "reckless", "threshold": 0.5, "bonus_damage": 2},
+        "xp": 50, "galleons": 15, "token_chance": 0.40,
+        "hint": "Reckless — deals extra damage below 50% HP. Uses Incendio."
+    },
+    "hufflepuff_rival": {
+        "name": "Hufflepuff Dueling Rival",
+        "tier": "average",
+        "level": 3, "hp": 60, "mana": 35,
+        "pd": 16, "md": 13, "initiative_bonus": 2,
+        "attacks": [
+            {"name": "Flipendo", "to_hit_bonus": 6, "damage": 12, "vs": "md",
+             "effect": {"name": "weakened", "chance": 1.0, "amount": -2}},
+            {"name": "Episkey", "to_hit_bonus": 0, "damage": 0, "vs": "self",
+             "heal": 12, "mana_cost": 12},
+        ],
+        "special": {"name": "steadfast", "threshold": 0.30, "heal": 12, "uses": 1},
+        "xp": 48, "galleons": 14, "token_chance": 0.38,
+        "hint": "Steadfast — heals itself. Uses Episkey when hurt.",
+    },
+    "grindylow": {
+        "name": "Grindylow",
+        "tier": "average",
+        "level": 3, "hp": 50, "mana": 15,
+        "pd": 15, "md": 12, "initiative_bonus": 3,
+        "attacks": [
+            {"name": "Grasp", "to_hit_bonus": 6, "damage": 8, "vs": "pd"},
+            {"name": "Drag Under", "to_hit_bonus": 6, "damage": 10, "vs": "pd",
+             "effect": {"name": "stunned", "chance": 1.0}, "uses": 1},
+        ],
+        "special": None,
+        "xp": 46, "galleons": 13, "token_chance": 0.35,
+        "hint": "Its Drag Under can stun you once per battle.",
     },
 
     # --- STRONG ---
@@ -422,6 +577,7 @@ ENEMIES = {
         ],
         "special": {"name": "thick_hide", "physical_reduction": 3},
         "xp": 100, "galleons": 30, "token_chance": 0.50,
+        "hint": "Thick hide — physical attacks deal -3 damage. Low magical defense.",
     },
     "dark_wizard_apprentice": {
         "name": "Dark Wizard Apprentice",
@@ -438,6 +594,7 @@ ENEMIES = {
         ],
         "special": {"name": "dark_resilience", "resist_spell": "expelliarmus", "chance": 0.5},
         "xp": 120, "galleons": 40, "token_chance": 0.55,
+        "hint": "Resists Expelliarmus. Uses Sectumsempra below 50% HP.",
     },
     "werewolf": {
         "name": "Werewolf (Untamed)",
@@ -451,6 +608,50 @@ ENEMIES = {
         ],
         "special": {"name": "frenzy", "threshold": 0.30, "extra_attacks": 1, "extra_damage_taken": 5},
         "xp": 110, "galleons": 35, "token_chance": 0.50,
+        "hint": "Frenzies below 30% HP — attacks twice, takes more damage."
+    },
+    "inferi": {
+        "name": "Inferi",
+        "tier": "strong",
+        "level": 5, "hp": 90, "mana": 0,
+        "pd": 15, "md": 16, "initiative_bonus": 2,
+        "attacks": [
+            {"name": "Cold Grasp", "to_hit_bonus": 8, "damage": 15, "vs": "pd",
+             "save": {"attr": "willpower", "dc": 14},
+             "effect": {"name": "weakened", "chance": 1.0, "amount": -2}},
+        ],
+        "special": {"name": "undying", "resist_spell": "expelliarmus", "multiplier": 0.5},
+        "xp": 105, "galleons": 32, "token_chance": 0.52,
+        "hint": "Undying — resists Expelliarmus. Cold grasp can weaken you.",
+    },
+    "erumpent": {
+        "name": "Erumpent",
+        "tier": "strong",
+        "level": 5, "hp": 110, "mana": 0,
+        "pd": 18, "md": 13, "initiative_bonus": 4,
+        "attacks": [
+            {"name": "Gore", "to_hit_bonus": 9, "damage": 22, "vs": "pd"},
+            {"name": "Trample", "to_hit_bonus": 8, "damage": 16, "vs": "pd",
+             "effect": {"name": "stunned", "chance": 1.0}, "uses": 1},
+        ],
+        "special": {"name": "explosive_death", "damage": 15},
+        "xp": 115, "galleons": 38, "token_chance": 0.52,
+        "hint": "Explodes on death — 15 damage to you when it dies.",
+    },
+    "boggart": {
+        "name": "Boggart",
+        "tier": "strong",
+        "level": 5, "hp": 85, "mana": 40,
+        "pd": 12, "md": 18, "initiative_bonus": 5,
+        "attacks": [
+            {"name": "Terror Grip", "to_hit_bonus": 9, "damage": 16, "vs": "md"},
+            {"name": "Fear Wave", "to_hit_bonus": 9, "damage": 0, "vs": "md",
+             "save": {"attr": "willpower", "dc": 15},
+             "effect": {"name": "stunned", "chance": 1.0}, "uses": 1},
+        ],
+        "special": {"name": "non_corporeal", "physical_multiplier": 0.5},
+        "xp": 110, "galleons": 36, "token_chance": 0.52,
+        "hint": "Non-corporeal — physical attacks deal half damage.",
     },
 
     # --- VERY STRONG ---
@@ -471,6 +672,7 @@ ENEMIES = {
         ],
         "requires": "expecto_patronum",
         "xp": 300, "galleons": 80, "token_chance": 1.0, "rare_token": True,
+        "hint": "Non-corporeal — physical attacks deal half damage. Requires Patronus.",
     },
     "death_eater": {
         "name": "Death Eater",
@@ -488,6 +690,7 @@ ENEMIES = {
         "special": {"name": "dark_mark", "summon": "dark_wizard_apprentice",
                     "summon_hp_pct": 0.5, "threshold": 0.5, "uses": 1},
         "xp": 350, "galleons": 100, "token_chance": 1.0, "rare_token": True,
+        "hint": "Summons an ally at 50% HP. Executes below 30% HP."
     },
     "basilisk": {
         "name": "Basilisk",
@@ -505,6 +708,68 @@ ENEMIES = {
         ],
         "special": {"name": "giant_serpent", "immune": ["poison"], "resist": {"fire": 0.5}},
         "xp": 400, "galleons": 120, "token_chance": 1.0, "rare_token": True, "rare_token_count": 2,
+        "hint": "Gaze can Petrify. Immune to poison, resistant to fire.",
+
+    },
+    "bellatrix": {
+        "name": "Bellatrix Lestrange",
+        "tier": "very_strong",
+        "level": 8, "hp": 160, "mana": 100,
+        "pd": 17, "md": 20, "initiative_bonus": 8,
+        "attacks": [
+            {"name": "Crucio", "to_hit_bonus": 12, "damage": 20, "vs": "md",
+             "mana_cost": 20, "effect": {"name": "stunned", "chance": 1.0}},
+            {"name": "Incendio", "to_hit_bonus": 12, "damage": 22, "vs": "md",
+             "mana_cost": 18, "effect": {"name": "burn", "chance": 1.0}},
+            {"name": "Avada Kedavra", "to_hit_bonus": 12, "damage": 30, "vs": "md",
+             "mana_cost": 40, "execute_threshold": 0.25},
+        ],
+        "special": {"name": "insane", "threshold": 0.5, "bonus_damage": 3},
+        "xp": 380, "galleons": 110, "token_chance": 1.0, "rare_token": True,
+        "hint": "Insane — grows stronger below 50% HP. Uses Avada Kedavra."
+    },
+
+    # --- BOSSES ---
+    "aragog": {
+        "name": "Aragog",
+        "tier": "boss",
+        "level": 10, "hp": 250, "mana": 50,
+        "pd": 20, "md": 17, "initiative_bonus": 6,
+        "attacks": [
+            {"name": "Venomous Bite", "to_hit_bonus": 13, "damage": 30, "vs": "pd",
+             "effect": {"name": "poison", "chance": 1.0, "damage": 6}},
+            {"name": "Leg Swipe", "to_hit_bonus": 13, "damage": 22, "vs": "pd"},
+            {"name": "Web Cocoon", "to_hit_bonus": 12, "damage": 0, "vs": "pd",
+             "effect": {"name": "stunned", "chance": 1.0, "duration": 2}, "uses": 1},
+        ],
+        "special": {"name": "brood_mother", "summon": "acromantula_hatchling",
+                    "thresholds": [0.5, 0.25], "summon_hp_pct": 1.0},
+        "weak_to": {"fire": 1.5},
+        "xp": 500, "galleons": 150, "token_chance": 1.0,
+        "rare_token": True, "rare_token_count": 2,
+        "boss": True,
+        "hint": "BOSS. Summons Hatchlings. Weak to fire.",
+    },
+    "voldemort": {
+        "name": "Lord Voldemort",
+        "tier": "boss",
+        "level": 10, "hp": 280, "mana": 150,
+        "pd": 15, "md": 21, "initiative_bonus": 9,
+        "attacks": [
+            {"name": "Avada Kedavra", "to_hit_bonus": 13, "damage": 35, "vs": "md",
+             "mana_cost": 40, "execute_threshold": 0.25},
+            {"name": "Crucio", "to_hit_bonus": 13, "damage": 22, "vs": "md",
+             "mana_cost": 20, "effect": {"name": "stunned", "chance": 1.0}},
+            {"name": "Fiendfyre", "to_hit_bonus": 13, "damage": 26, "vs": "md",
+             "mana_cost": 30, "effect": {"name": "burn", "chance": 1.0, "damage": 5}},
+        ],
+        "special": {"name": "dark_lords_will", "threshold": 0.5,
+                    "heal": 30, "attack_bonus": 2, "uses": 1,
+                    "resist_spell": "expelliarmus"},
+        "xp": 800, "galleons": 250, "token_chance": 1.0,
+        "rare_token": True, "rare_token_count": 5,
+        "boss": True,
+        "hint": "BOSS. Draws on dark power below 50% HP. Uses Avada Kedavra.",
     },
 }
 
