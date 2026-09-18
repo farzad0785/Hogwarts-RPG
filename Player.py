@@ -62,6 +62,7 @@ class Player:
         self.house = None                # set after Sorting
         self.win_streak = 0
         self.discovered_enemies = []     # list of enemy keys (Hufflepuff)
+        self.battle_log = []
 
         # Attributes
         self.base_attrs = dict(attrs) if attrs else dict(STARTING_ATTRS)
@@ -332,6 +333,23 @@ class Player:
 
     def reset_streak(self):
         self.win_streak = 0
+
+    # --------------------------------------------------------
+    # RECENT COMBAT
+    # --------------------------------------------------------
+
+    def record_battle(self, enemy_name, result, turns, xp=0, gold=0, tokens=0):
+        """Log the outcome of a battle. Keeps the last 20."""
+        self.battle_log.append({
+            "enemy":  enemy_name,
+            "result": result,   # "win" | "lose" | "flee" | "draw"
+            "turns":  turns,
+            "xp":     xp,
+            "gold":   gold,
+            "tokens": tokens,
+        })
+        if len(self.battle_log) > 20:
+            self.battle_log = self.battle_log[-20:]
 
     # --------------------------------------------------------
     # SPELLS
