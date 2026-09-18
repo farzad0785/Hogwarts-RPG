@@ -44,7 +44,8 @@ That's it. You're a wizard now.
 | 4. Character Sheet | View all your stats |
 | 5. Rest | Full HP/Mana restore (resets win streak) |
 | 6. Help | How-to-play guide |
-| 7. Save Game | Save progress to savegame.json |
+| 7. Recent Actions | See your last 5 battles |
+| 8. Save Game | Save progress to savegame.json |
 | 0. Save & Quit | Save and exit |
 
 ---
@@ -74,6 +75,9 @@ Scale: 1-10. You start around 3-4. Every level you gain +1 point to spend.
 - Natural 1 = fumble (miss + lose 3 extra mana)
 - Mana regenerates +2 per turn
 - 1 action per turn - cast a spell, use an item, or flee
+- Press **I** during combat to use a potion or combat item
+- Press **?** during combat to see spell details
+- Using an item costs your turn
 
 ### The 5 Starter Spells
 
@@ -116,18 +120,35 @@ Resting resets your streak. So does losing or fleeing.
 
 ## Enemies
 
-Five tiers. Fifteen total.
+Six tiers. Thirty-two total.
 
 | Tier | Recommended Level | Examples |
 |---|---|---|
-| Very Weak | 1 | Training Dummy, Cornish Pixie, Garden Gnome |
-| Weak | 2-3 | Giant Rat, Doxie, Hinkypunk |
-| Average | 3-5 | Red Cap, Slytherin Rival, Acromantula Hatchling |
-| Strong | 5-7 | Mountain Troll, Dark Wizard Apprentice, Werewolf |
-| Very Strong | 8+ | Dementor, Death Eater, Basilisk |
+| Very Weak | 1 | Training Dummy, Cornish Pixie, Puffskein, Bundimun |
+| Weak | 2-3 | Giant Rat, Niffler, Mandrake, Fire Crab |
+| Average | 3-5 | Red Cap, House Rivals, Grindylow |
+| Strong | 5-7 | Mountain Troll, Werewolf, Inferi, Boggart |
+| Very Strong | 8+ | Dementor, Death Eater, Bellatrix |
+| Boss | 10 | Aragog, Lord Voldemort |
+
+**Enemy Hints** — before every fight, you see a one-line warning about the enemy's special mechanic. Pay attention:
+
+    You encounter: Niffler
+      Level 2   HP 25   MD 11   PD 14
+
+      ⚠ Steals 3 Galleons every time it hits you.
+
+    1. Fight
+    2. Back away
 
 Each enemy has a unique mechanic and a weakness. Learn them.
 
+### Bosses (Level 10)
+
+Two bosses are waiting at the endgame — **Aragog** and **Lord Voldemort**. They don't appear in random fights. They require a dedicated Level 10 encounter.
+
+- **Aragog** — summons Acromantula Hatchlings, weak to fire
+- **Voldemort** — draws on dark power below 50% HP, executes low-HP players
 ---
 
 ## Shops
@@ -191,20 +212,23 @@ Currently implemented:
 - Character creation + wand choice
 - House sorting with reroll
 - Combat (d20 system)
-- 5 spells, 15 enemies
+- 5 spells, 32 enemies (including 2 bosses)
 - Leveling, XP, win streak
 - Three shops (spells, apothecary, wand smith)
 - Items, potions, gear
+- Mid-battle item usage
+- Enemy hints (pre-battle warnings)
+- Recent Actions (battle log)
 - Save/load
 - Help system
 
 Coming later:
+- Boss encounter flow (Level 10)
+- Multi-enemy combat
 - Classes & festivals
 - Year 2+ spells (up to 20 total)
-- Multi-enemy combat (Death Eater summons)
 - Story, quests, and areas
 - FastAPI web version
-
 ---
 
 ## License

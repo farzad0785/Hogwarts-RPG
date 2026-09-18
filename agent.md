@@ -189,41 +189,96 @@ Permanent mods include: wand wood, wand bond, wand upgrades, gear, house bonus.
 
 ---
 
-## 7. ENEMIES — 5 TIERS, 15 TOTAL
-
+## 7. ENEMIES — 6 TIERS, 32 TOTAL
 | Tier        | Enemy                  | Lvl | HP  | MD | PD | XP  | Gal | Token% |
 |-------------|------------------------|-----|-----|----|----|-----|-----|--------|
-| Very Weak   | Training Dummy         | 1   | 12  | 8  | 8  | 5   | 1   | 5%     |
+| Very Weak   | Training Dummy         | 1   | 12  | 8  | 8  | 5   | 1   | 0%     |
 |             | Cornish Pixie          | 1   | 18  | 10 | 12 | 10  | 2   | 10%    |
 |             | Garden Gnome           | 1   | 20  | 9  | 10 | 8   | 1   | 8%     |
+|             | Puffskein              | 1   | 22  | 8  | 8  | 6   | 1   | 5%     |
+|             | Bundimun               | 1   | 16  | 12 | 10 | 9   | 1   | 8%     |
+|             | Flobberworm            | 1   | 20  | 6  | 12 | 5   | 1   | 5%     |
+|             | Chizpurfle             | 1   | 14  | 10 | 12 | 10  | 1   | 8%     |
 | Weak        | Giant Rat              | 2   | 30  | 11 | 12 | 22  | 5   | 20%    |
 |             | Doxie                  | 2   | 24  | 12 | 14 | 25  | 6   | 20%    |
 |             | Hinkypunk              | 2   | 28  | 13 | 11 | 25  | 6   | 20%    |
+|             | Bowtruckle             | 2   | 26  | 12 | 15 | 24  | 6   | 20%    |
+|             | Niffler                | 2   | 25  | 11 | 14 | 24  | 5   | 20%    |
+|             | Young Mandrake         | 2   | 28  | 13 | 12 | 25  | 6   | 20%    |
+|             | Fire Crab              | 2   | 30  | 14 | 16 | 26  | 7   | 20%    |
 | Average     | Red Cap                | 3   | 50  | 13 | 14 | 45  | 12  | 35%    |
 |             | Slytherin Rival        | 3   | 45  | 15 | 13 | 50  | 15  | 40%    |
 |             | Acromantula Hatchling  | 3   | 55  | 12 | 15 | 48  | 14  | 35%    |
+|             | Gryffindor Rival       | 3   | 48  | 14 | 14 | 50  | 15  | 40%    |
+|             | Hufflepuff Rival       | 3   | 60  | 13 | 16 | 48  | 14  | 38%    |
+|             | Grindylow              | 3   | 50  | 12 | 15 | 46  | 13  | 35%    |
 | Strong      | Mountain Troll         | 5   | 100 | 12 | 16 | 100 | 30  | 50%    |
 |             | Dark Wizard Apprentice | 5   | 80  | 17 | 14 | 120 | 40  | 55%    |
 |             | Werewolf               | 5   | 95  | 14 | 17 | 110 | 35  | 50%    |
+|             | Inferi                 | 5   | 90  | 16 | 15 | 105 | 32  | 52%    |
+|             | Erumpent               | 5   | 110 | 13 | 18 | 115 | 38  | 52%    |
+|             | Boggart                | 5   | 85  | 18 | 12 | 110 | 36  | 52%    |
 | Very Strong | Dementor               | 8   | 150 | 20 | 18 | 300 | 80  | 100%   |
 |             | Death Eater            | 8   | 140 | 19 | 16 | 350 | 100 | 100%   |
 |             | Basilisk               | 10  | 200 | 18 | 19 | 400 | 120 | 100%   |
-
+|             | Bellatrix Lestrange    | 8   | 160 | 20 | 17 | 380 | 110 | 100%   |
+| Boss        | Aragog                 | 10  | 250 | 17 | 20 | 500 | 150 | 100%   |
+|             | Lord Voldemort         | 10  | 280 | 21 | 15 | 800 | 250 | 100%   |
 **Key enemy mechanics:**
-- **Cornish Pixie** — 25% auto-dodge
+- **Training Dummy** — no streak, no bond, no tokens (practice only)
+- **Cornish Pixie / Bowtruckle** — 25% auto-dodge
 - **Garden Gnome** — half damage from Flipendo
+- **Puffskein** — harmless hum, high HP for tier
+- **Bundimun** — slime weakens your next attack
+- **Flobberworm** — 50% chance to doze off and skip turn
+- **Chizpurfle** — drains 3 mana on hit; Tiny (-2 to hit)
 - **Giant Rat** — Infected (-2 HP/turn, 2 turns)
 - **Doxie** — Tiny (-2 to hit it)
 - **Hinkypunk** — Lure (Willpower check or lose turn)
-- **Red Cap** — +3 dmg below 50% HP
-- **Slytherin Rival** — uses player spells, tactical
+- **Niffler** — steals 3 Galleons on hit
+- **Young Mandrake** — scream = Willpower save or stunned
+- **Fire Crab** — reflects 2 damage each time you hit it
+- **Red Cap / Gryffindor Rival / Bellatrix** — bonus damage below 50% HP
+- **Slytherin / Gryffindor / Hufflepuff Rival** — mirror duels with spells
+- **Hufflepuff Rival** — self-heals with Episkey; Steadfast below 30%
+- **Grindylow** — Drag Under stuns once per battle
 - **Acromantula** — Web Shot (-2 Agility), weak to fire (+50%)
 - **Mountain Troll** — Thick Hide (-3 physical dmg)
 - **Dark Wizard** — resists Expelliarmus 50%
 - **Werewolf** — Frenzy below 30% (2 attacks, +5 dmg taken)
-- **Dementor** — non-corporeal (physical = half dmg), needs Patronus
+- **Inferi** — undying; resists Expelliarmus 50%
+- **Erumpent** — explodes on death (15 dmg to player)
+- **Boggart** — non-corporeal (physical = half dmg)
+- **Dementor** — non-corporeal, needs Patronus
 - **Death Eater** — Dark Mark summons ally at 50% HP
 - **Basilisk** — Petrifying Gaze, immune poison, fire-resistant
+- **Bellatrix** — Insane; bonus damage below 50% HP
+- **Aragog** — BOSS. Summons Hatchlings at 50% and 25% HP
+- **Voldemort** — BOSS. Draws on dark power at 50% HP
+
+### Enemy Hints
+
+Every enemy has a `hint` field — a one-line mechanical warning shown before
+the fight begins. Example:
+
+    You encounter: Niffler
+      Level 2   HP 25   MD 11   PD 14
+
+      ⚠ Steals 3 Galleons every time it hits you.
+
+    1. Fight
+    2. Back away
+
+Hints appear in `main.py` → `encounter()`. They are the player's only
+pre-battle warning about special mechanics. Keep them short (< 60 chars).
+
+### Boss Tier
+
+Bosses use `"tier": "boss"` — they are **excluded from random encounters**.
+They need a dedicated encounter flow (Level 10 trigger). Currently:
+
+- **Aragog** — Level 10, 250 HP, summons Hatchlings, weak to fire
+- **Lord Voldemort** — Level 10, 280 HP, executes below 25% HP
 
 **Design rules:**
 1. Every enemy has a unique mechanic
@@ -301,6 +356,25 @@ Permanent mods include: wand wood, wand bond, wand upgrades, gear, house bonus.
 | Fanged Flyer             | 8 dmg, guaranteed hit       | 18 G |
 | Stink Pellet             | Enemy flees if below 25% HP | 8 G  |
 
+### Mid-Battle Item Usage
+
+During combat, press **I** at the action menu to open the item submenu.
+
+    Choose an action:
+      1. Flipendo        (5 mana)
+      2. Expelliarmus    (10 mana)
+      ...
+      I. Items (3)
+      F. Flee
+      ?. Spell details
+      0. Pass
+
+Rules:
+- Using any item (potion or combat item) **consumes the turn**.
+- Combat items auto-target the current enemy.
+- Press **0** in the item menu to return without consuming the turn.
+- If an item kills the enemy, the turn resolves normally (victory).
+- 
 ### Gear (equipped, 6 slots)
 
 Slots: **Body, Hands, Feet, Ring, Amulet, Wand**
@@ -345,7 +419,37 @@ Slots: **Body, Hands, Feet, Ring, Amulet, Wand**
 | Wand Mastery I  | 120 G | ~8–10                |
 
 ---
+## 10.5 RECENT ACTIONS
 
+The player can view their last **5 battles** from the main hub (option 7).
+
+Each entry shows:
+- Enemy name
+- Result (WIN / LOSS / FLEE / DRAW)
+- Turns taken
+- Rewards (compact: `+XP  +Galleons  +Tokens`)
+
+Example:
+
+    ════════════════════════════════════════════════════
+      RECENT BATTLES
+    ════════════════════════════════════════════════════
+      1. Cornish Pixie             WIN    3 turns    +12 XP  +2 G
+      2. Slytherin Dueling Rival   LOSS   5 turns    —
+      3. Giant Rat                 WIN    4 turns    +22 XP  +5 G  +1 T
+      4. Doxie                     WIN    2 turns    +25 XP  +6 G
+      5. Training Dummy            WIN    1 turn     +5 XP  +1 G
+    ════════════════════════════════════════════════════
+
+Implementation:
+- `Player.battle_log` — list of dicts (max 20, FIFO trim)
+- `Player.record_battle(name, result, turns, xp, gold, tokens)`
+- `main.py → show_recent_actions(player)` — displays last 5 reversed
+- Saved to `savegame.json` under `"battle_log"` key
+
+Training Dummy still appears in the log (it happened), but shows
+no streak bonus and no tokens.
+---
 ## 11. WAND SYSTEM
 
 ### Overview
@@ -441,7 +545,8 @@ Single function in `main.py` → `show_help()`.
 
 - Classes & festivals (XP + temp modifiers + story)
 - Full 20-spell list (Year 2+)
-- Multi-enemy combat (Death Eater summons, group fights)
+- Multi-enemy combat (needed for Aragog + Death Eater summons)
+- Boss encounter flow (Level 10 trigger for Aragog / Voldemort)
 - Story / quests / areas
 - FastAPI web version
 - Save/load multiple slots
@@ -453,41 +558,47 @@ Single function in `main.py` → `show_help()`.
 
 ## 14. DESIGN DECISIONS LOG
 
-| Decision             | Choice                               | Why                                  |
-|----------------------|--------------------------------------|--------------------------------------|
-| Randomness           | d20 + stats                          | Swingy, exciting, replayable         |
-| 8 attributes         | Physical / mental / social / magical | Covers all playstyles                |
-| Cap at 10            | Small numbers                        | Meaningful, easy to balance          |
-| Mana regen +2/turn   | —                                    | Prevents spell spam                  |
-| 1 action/turn        | —                                    | Simple, tactical                     |
-| 5 starter spells     | Complete toolkit                     | Room to grow                         |
-| Generic spell tokens | Any token = any spell                | Simple, flexible                     |
-| Classes/festivals    | Deferred                             | Keep scope small                     |
-| Starting tokens      | 2                                    | Medium pace                          |
-| HP/Mana per level    | +5 / +3                              | Keeps combat tense                   |
-| No respec            | Permanent choices                    | Weight to decisions                  |
-| Potions cost a turn  | Yes                                  | Real tradeoff in combat              |
-| Gear slots           | 6                                    | Enough depth, not overwhelming       |
-| Selling items        | 50% of buy                           | Inventory management                 |
-| Shop unlock          | Level 2                              | Let player gather money first        |
-| Wand wood bonus      | +1 attribute                         | Simple, clear                        |
-| Wand core            | Unique passive                       | Wand personality                     |
-| Wand bond            | 8 levels                             | Slow, meaningful progression         |
-| House selection      | Random + 1 reroll                    | Magic-hat feel, some agency          |
-| Gryffindor bonus     | Clutch (below 20% HP)                | Rewards risky, brave play            |
-| Hufflepuff bonus     | +2 HP per species                    | Rewards exploration                  |
-| Ravenclaw bonus      | +1 token per 4-streak                | Rewards consistency                  |
-| Slytherin bonus      | -20% buy / +10% sell                 | Cunning trader                       |
-| Win streak bonus     | +15% per win, cap +75%               | Rewards risk, scales with difficulty |
-| Streak resets        | Rest / loss / flee                   | Rest becomes a real cost             |
-| Help system          | Hub menu + first-time prompt         | Accessibility                        |
-
+| Decision                 | Choice                               | Why                                  |
+|--------------------------|--------------------------------------|--------------------------------------|
+| Randomness               | d20 + stats                          | Swingy, exciting, replayable         |
+| 8 attributes             | Physical / mental / social / magical | Covers all playstyles                |
+| Cap at 10                | Small numbers                        | Meaningful, easy to balance          |
+| Mana regen +2/turn       | —                                    | Prevents spell spam                  |
+| 1 action/turn            | —                                    | Simple, tactical                     |
+| 5 starter spells         | Complete toolkit                     | Room to grow                         |
+| Generic spell tokens     | Any token = any spell                | Simple, flexible                     |
+| Classes/festivals        | Deferred                             | Keep scope small                     |
+| Starting tokens          | 2                                    | Medium pace                          |
+| HP/Mana per level        | +5 / +3                              | Keeps combat tense                   |
+| No respec                | Permanent choices                    | Weight to decisions                  |
+| Potions cost a turn      | Yes                                  | Real tradeoff in combat              |
+| Gear slots               | 6                                    | Enough depth, not overwhelming       |
+| Selling items            | 50% of buy                           | Inventory management                 |
+| Shop unlock              | Level 2                              | Let player gather money first        |
+| Wand wood bonus          | +1 attribute                         | Simple, clear                        |
+| Wand core                | Unique passive                       | Wand personality                     |
+| Wand bond                | 8 levels                             | Slow, meaningful progression         |
+| House selection          | Random + 1 reroll                    | Magic-hat feel, some agency          |
+| Gryffindor bonus         | Clutch (below 20% HP)                | Rewards risky, brave play            |
+| Hufflepuff bonus         | +2 HP per species                    | Rewards exploration                  |
+| Ravenclaw bonus          | +1 token per 4-streak                | Rewards consistency                  |
+| Slytherin bonus          | -20% buy / +10% sell                 | Cunning trader                       |
+| Win streak bonus         | +15% per win, cap +75%               | Rewards risk, scales with difficulty |
+| Streak resets            | Rest / loss / flee                   | Rest becomes a real cost             |
+| Help system              | Hub menu + first-time prompt         | Accessibility                        |
+| Training Dummy no streak | Yes                                  | Prevents streak/bond farming         |
+| Training Dummy no tokens | 0% drop                              | Prevents Ravenclaw token farm        |
+| Enemy hints              | One-line warning before fight        | Fair fights, teaches mechanics       |
+| Mid-battle items         | I key in action menu                 | Potions finally usable where needed  |
+| Recent Actions           | Last 5 battles, saved                | Game feels less like a slot machine  |
+| Boss tier                | Excluded from random encounters      | Reserved for Level 10 endgame        |
+| Bond fix                 | Training Dummy skipped               | Bond earned from real battles only   |
 ---
 
 ## 15. FILE STRUCTURE
 wizard_rpg/
-├── agent.md # this design doc
-├── readme.md # player-facing readme
+├── Agent.md # this design doc
+├── Readme.md # player-facing readme
 ├── Data.py # all constants (attributes, spells, enemies, items, houses)
 ├── Player.py # Player class
 ├── Enemy.py # Enemy class
@@ -502,11 +613,11 @@ wizard_rpg/
 
 ## 16. NEXT STEPS
 
-1. Playtest the current build end-to-end
-2. Add first-clear XP bonus + diminishing returns
+1. Boss encounter flow (Level 10 → Aragog or Voldemort)
+2. Multi-enemy combat (needed for boss summons)
 3. Add classes & festivals system
 4. Add Year 2 spells
-5. Multi-enemy combat for Death Eater
+5. Add first-clear XP bonus + diminishing returns
 6. Story / quests / areas
 
 ---
@@ -520,7 +631,8 @@ wizard_rpg/
 - **Bond Level** = Wand's growth stage (1–8)
 - **Streak** = Consecutive wins without resting/losing/fleeing
 - **Clutch** = Gryffindor's below-20%-HP combat bonus
-
+- **Hint** = One-line mechanical warning shown before a battle
+- **Boss Tier** = Special enemy tier (`"boss"`), excluded from random encounters
 ---
 
 *End. Update after each design session.*
