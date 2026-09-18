@@ -12,7 +12,9 @@ import random
 from pathlib import Path
 
 from Data import (
-    ENEMIES_BY_TIER, POTIONS, GEAR, GEAR_SLOTS,
+    ENEMIES, ENEMIES_BY_TIER,
+    POTIONS,
+    GEAR, GEAR_SLOTS,
     ATTRIBUTES, ATTR_DISPLAY,
     HOUSES, HOUSE_KEYS,
 )
@@ -151,6 +153,47 @@ def show_help():
         for line in lines:
             print(f"    {line}")
     print()
+    print("═" * 60)
+    pause()
+
+def show_recent_actions(player):
+    """Show the last 5 battles."""
+    print()
+    print("═" * 60)
+    print("  RECENT BATTLES")
+    print("═" * 60)
+
+    if not player.battle_log:
+        print("  No battles fought yet.")
+        print("═" * 60)
+        pause()
+        return
+
+    # Show the last 5 (most recent first)
+    recent = list(reversed(player.battle_log[-5:]))
+
+    for i, entry in enumerate(recent, start=1):
+        enemy   = entry["enemy"]
+        result  = entry["result"].upper()
+        turns   = entry["turns"]
+        xp      = entry.get("xp", 0)
+        gold    = entry.get("gold", 0)
+        tokens  = entry.get("tokens", 0)
+
+        turn_str = f"{turns} turn" + ("s" if turns != 1 else "")
+        rewards = "—"
+        if result == "WIN":
+            parts = []
+            if xp:
+                parts.append(f"+{xp} XP")
+            if gold:
+                parts.append(f"+{gold} G")
+            if tokens:
+                parts.append(f"+{tokens} T")
+            rewards = "  ".join(parts) if parts else "—"
+
+        print(f"  {i}. {enemy:<24} {result:<6} {turn_str:<10} {rewards}")
+
     print("═" * 60)
     pause()
 
@@ -322,6 +365,7 @@ def save_game(player, path=SAVE_FILE):
         "house":          player.house,
         "win_streak":     player.win_streak,
         "discovered_enemies": player.discovered_enemies,
+        "battle_log":     player.battle_log,
     }
     Path(path).write_text(json.dumps(data, indent=2))
 
@@ -357,6 +401,7 @@ def try_load(path=SAVE_FILE):
     p.house              = data.get("house")
     p.win_streak         = data.get("win_streak", 0)
     p.discovered_enemies = data.get("discovered_enemies", [])
+    p.battle_log = data.get("battle_log", [])
 
     print(f"\n  Loaded {p.name} (Level {p.level}).")
     return p
@@ -381,14 +426,14 @@ def main_hub(player):
 
         if player.attr_points:
             print(f"  ⚠ {player.attr_points} unspent Attribute Point(s)")
-        print("═" * 56)
         print("  1. Fight")
         print("  2. Shops")
         print("  3. Inventory & Gear")
         print("  4. Character Sheet")
         print("  5. Rest (full restore)")
         print("  6. Help / How to Play")
-        print("  7. Save Game")
+        print("  7. Recent Actions")
+        print("  8. Save Game")
         print("  0. Save & Quit")
         print("═" * 56)
 
@@ -412,6 +457,8 @@ def main_hub(player):
         elif choice == "6":
             show_help()
         elif choice == "7":
+            show_recent_actions(player)
+        elif choice == "8":
             save_game(player)
             print("  Game saved.")
 
@@ -475,6 +522,10 @@ def encounter(player, tier):
     print(f"  You encounter: {enemy.name}")
     print(f"    Level {enemy.level}   HP {enemy.max_hp}   "
           f"MD {enemy.md}   PD {enemy.pd}")
+    hint = ENEMIES.get(key, {}).get("hint")
+    if hint:
+        print()
+        print(f"    ⚠ {hint}")
     print()
     print("    1. Fight")
     print("    2. Back away")
