@@ -17,6 +17,7 @@ import random
 
 from Data import SPELLS, ENEMIES, HOUSES
 from Spells import cast_spell, apply_incoming_damage
+from Player import Player
 
 
 # ============================================================
@@ -143,6 +144,7 @@ def _player_turn(player, enemy, rng, log, auto=False):
 
     # ---- Check enemy death ----
     if not enemy.is_alive():
+        _handle_enemy_death(player, enemy, log)
         log(f"  ★ {enemy.name} is defeated!")
         return "enemy_dead"
 
@@ -178,6 +180,14 @@ def _enemy_turn(player, enemy, rng, log):
 
     if not enemy.is_alive():
         return "enemy_dead"
+
+    # ---- Lazy skip (Flobberworm) ----
+    for spec in enemy.specials:
+        if spec.get("name") == "lazy":
+            if rng.random() < spec.get("skip_chance", 0.5):
+                log(f"  {enemy.name} dozes off and skips the turn.")
+                _enemy_end_of_turn(enemy, log)
+                return "ok"
 
     # ---- Skip turn ----
     if enemy.should_skip_turn():
@@ -237,31 +247,48 @@ def _enemy_end_of_turn(enemy, log):
 # ============================================================
 
 def _resolve_enemy_attack(player, enemy, attack, rng, log):
-    # Spend mana if needed
+    attack_name = attack.get("name", "?")
+
+    # Track uses
+    enemy.mark_attack_used(attack_name)
+
+    # --- Self-heal attack (Hufflepuff Rival's Episkey) ---
+    if attack.get("vs") == "self":
+        mana_cost = attack.get("mana_cost", 0)
+        if mana_cost and not enemy.spend_mana(mana_cost):
+            log(f"  {enemy.name} lacks mana for {attack_name} — skips.")
+            return
+        before = enemy.current_hp
+        enemy.heal(attack.get("heal", 0))
+        gained = enemy.current_hp - before
+        log(f"  {enemy.name} casts {attack_name} and heals {gained} HP.")
+        return
+
+    # --- Spend mana ---
     mana_cost = attack.get("mana_cost", 0)
     if mana_cost:
         if not enemy.spend_mana(mana_cost):
-            log(f"  {enemy.name} lacks mana for {attack['name']} — skips.")
+            log(f"  {enemy.name} lacks mana for {attack_name} — skips.")
             return
 
+    # --- Attack roll ---
     nat = rng.randint(1, 20)
-    penalty = enemy.get_attack_penalty()          # weakened
+    penalty = enemy.get_attack_penalty()
     bonus = attack.get("to_hit_bonus", 0) + penalty
 
     vs = attack.get("vs", "pd")
     defense = player.physical_defense() if vs == "pd" else player.magical_defense()
-
     attack_total = nat + bonus
 
     if nat == 1:
-        log(f"  {enemy.name} attacks with {attack['name']} — NATURAL 1! Misses badly.")
+        log(f"  {enemy.name} attacks with {attack_name} — NATURAL 1! Misses badly.")
         return
     if nat != 20 and attack_total < defense:
-        log(f"  {enemy.name} attacks with {attack['name']} — "
+        log(f"  {enemy.name} attacks with {attack_name} — "
             f"d20({nat}) + {bonus} = {attack_total} vs {defense} → MISS")
         return
 
-    # Save-or-suck effects (Basilisk gaze)
+    # --- Save-or-suck (Basilisk gaze, Mandrake scream) ---
     save = attack.get("save")
     if save:
         dc = save["dc"]
@@ -269,25 +296,21 @@ def _resolve_enemy_attack(player, enemy, attack, rng, log):
         attr_val = player.get_effective_attr(attr)
         save_roll = rng.randint(1, 20) + attr_val
         if save_roll >= dc:
-            log(f"  {enemy.name} uses {attack['name']} — "
+            log(f"  {enemy.name} uses {attack_name} — "
                 f"{player.name} saves! (d20 + {attr_val} = {save_roll} vs {dc})")
             return
         else:
-            log(f"  {enemy.name} uses {attack['name']} — "
+            log(f"  {enemy.name} uses {attack_name} — "
                 f"{player.name} fails to save! (d20 + {attr_val} = {save_roll} vs {dc})")
 
-    # Damage
+    # --- Damage ---
     damage = attack.get("damage", 0)
-    damage += enemy.bloodthirsty_bonus() if hasattr(enemy, "bloodthirsty_bonus") else 0
-
-    # Wand core fumble self-damage (applies to enemy? No — only player wands)
-    # Skip for enemies.
+    damage += enemy.threshold_damage_bonus()
 
     crit = (nat == 20)
     if crit:
         damage *= 2
 
-    # Shield / Protego mitigation
     final_damage, note = apply_incoming_damage(player, damage)
     if note:
         log("  " + note)
@@ -295,11 +318,30 @@ def _resolve_enemy_attack(player, enemy, attack, rng, log):
     player.take_damage(final_damage)
 
     crit_tag = "  ★ CRIT!" if crit else ""
-    log(f"  {enemy.name} hits with {attack['name']} — "
-        f"d20({nat}) + {bonus} = {attack_total} vs {defense} → "
-        f"{final_damage} damage{crit_tag}")
+    if final_damage > 0:
+        log(f"  {enemy.name} hits with {attack_name} — "
+            f"d20({nat}) + {bonus} = {attack_total} vs {defense} → "
+            f"{final_damage} damage{crit_tag}")
+    else:
+        log(f"  {enemy.name} uses {attack_name}.")
 
-    # Apply effect
+    # --- Steal gold (Niffler) ---
+    if "steal_gold" in attack:
+        amount = min(attack["steal_gold"], player.galleons)
+        if amount > 0:
+            player.galleons -= amount
+            log(f"  → {enemy.name} snatches {amount} Galleons!")
+        else:
+            log(f"  → {enemy.name} finds nothing to steal.")
+
+    # --- Mana drain (Chizpurfle) ---
+    if "mana_drain" in attack:
+        amount = min(attack["mana_drain"], player.current_mana)
+        if amount > 0:
+            player.current_mana -= amount
+            log(f"  → {enemy.name} drains {amount} mana!")
+
+    # --- Apply effect ---
     effect = attack.get("effect")
     if effect:
         name = effect.get("name")
@@ -308,15 +350,18 @@ def _resolve_enemy_attack(player, enemy, attack, rng, log):
             data = {}
             if "damage" in effect:
                 data["damage"] = effect["damage"]
-            player.add_status(name, data=data)
+            if "amount" in effect:
+                data["amount"] = effect["amount"]
+            duration = effect.get("duration")
+            player.add_status(name, data=data, duration=duration)
             log(f"  → {player.name} is {name}!")
 
-    # Execute (instant defeat if below threshold)
+    # --- Execute (Avada Kedavra) ---
     execute_threshold = attack.get("execute_threshold")
     if execute_threshold and player.current_hp > 0:
         if player.current_hp / player.max_hp() < execute_threshold:
             player.current_hp = 0
-            log(f"  ★ {enemy.name}'s {attack['name']} EXECUTES {player.name}!")
+            log(f"  ★ {enemy.name}'s {attack_name} EXECUTES {player.name}!")
 
 
 # ============================================================
@@ -352,6 +397,35 @@ def _try_enemy_special(player, enemy, rng, log):
         log(f"  {enemy.name} shoots webbing! {player.name} is slowed ({penalty} Agility for {dur}).")
         return True
 
+    # ---- Steadfast (Hufflepuff Rival) ----
+    if enemy.special_available("steadfast") and enemy.hp_pct() < 0.30:
+        spec = next(s for s in enemy.specials if s["name"] == "steadfast")
+        enemy.mark_special_used("steadfast")
+        heal = spec.get("heal", 0)
+        enemy.heal(heal)
+        log(f"  ★ {enemy.name} rallies! (+{heal} HP)")
+        return True
+
+    # ---- Dark Lord's Will (Voldemort) ----
+    if enemy.special_available("dark_lords_will") and enemy.hp_pct() < 0.5:
+        spec = next(s for s in enemy.specials if s["name"] == "dark_lords_will")
+        enemy.mark_special_used("dark_lords_will")
+        heal = spec.get("heal", 0)
+        enemy.heal(heal)
+        log(f"  ★ {enemy.name} draws on dark power! (+{heal} HP)")
+        return True
+
+    # ---- Brood Mother (Aragog) — placeholder until multi-enemy combat ----
+    for spec in enemy.specials:
+        if spec.get("name") != "brood_mother":
+            continue
+        for thresh in spec.get("thresholds", []):
+            key = f"brood_mother_{thresh}"
+            if enemy.hp_pct() < thresh and key not in enemy.used_specials:
+                enemy.mark_special_used(key)
+                log(f"  ★ {enemy.name} spawns a Hatchling! (full summon coming later)")
+                return True
+
     # ---- Death Eater: Dark Mark ----
     if enemy.special_available("dark_mark") and enemy.hp_pct() < 0.5:
         spec = next(s for s in enemy.specials if s["name"] == "dark_mark")
@@ -386,6 +460,15 @@ def _try_enemy_special(player, enemy, rng, log):
 # OUTCOMES
 # ============================================================
 
+def _handle_enemy_death(player, enemy, log):
+    """Trigger on-death specials (Erumpent explosion)."""
+    for spec in getattr(enemy, "specials", []):
+        if spec.get("name") == "explosive_death":
+            dmg = spec.get("damage", 0)
+            if dmg > 0:
+                player.take_damage(dmg)
+                log(f"  ★ {enemy.name} explodes! {player.name} takes {dmg} damage.")
+
 def _win(player, enemy, turns, rng, log):
     rewards = enemy.roll_rewards(rng)
 
@@ -398,14 +481,19 @@ def _win(player, enemy, turns, rng, log):
     log(f"═══ VICTORY ═══")
     log(f"  {enemy.name} defeated in {turns} turns.")
 
-    if mult > 1.0:
+    if mult > 1.0 and not enemy.no_streak:
         log(f"  Win streak bonus: ×{mult:.2f}")
 
     # ---- Apply rewards ----
     player.gain_xp(xp_gain)
     player.add_galleons(gold_gain)
     player.add_spell_tokens(rewards["tokens"] + rewards["rare_tokens"])
-    bond_up = player.record_battle_won()
+
+    # Training Dummy and similar "practice" enemies don't count toward bond
+    if enemy.no_streak:
+        bond_up = False
+    else:
+        bond_up = player.record_battle_won()
 
     log(f"  +{xp_gain} XP")
     log(f"  +{gold_gain} Galleons")
@@ -421,12 +509,24 @@ def _win(player, enemy, turns, rng, log):
     if is_new_species and player.house == "hufflepuff":
         hp_bonus = HOUSES["hufflepuff"]["passive_data"]["hp_per_species"]
         log(f"  ★ Hufflepuff: new species discovered! +{hp_bonus} max HP.")
-        player.heal(hp_bonus)  # also heal the new amount
+        player.heal(hp_bonus)
 
-    # ---- Record streak + Ravenclaw check ----
-    bonus_tokens, msg = player.record_win()
-    if msg:
-        log(f"  ★ {msg}")
+    # ---- Record streak (skip for Training Dummy and similar) ----
+    bonus_tokens = 0
+    if not enemy.no_streak:
+        bonus_tokens, msg = player.record_win()
+        if msg:
+            log(f"  ★ {msg}")
+
+    # ---- Log the battle ----
+    player.record_battle(
+        enemy_name=enemy.name,
+        result="win",
+        turns=turns,
+        xp=xp_gain,
+        gold=gold_gain,
+        tokens=rewards["tokens"] + rewards["rare_tokens"] + bonus_tokens,
+    )
 
     return {
         "result": "win",
@@ -449,6 +549,13 @@ def _lose(player, enemy, turns, log):
     player.galleons -= lost
     player.reset_streak()
     log(f"  Lose {lost} Galleons and your win streak. Wake up in the hospital wing.")
+
+    player.record_battle(
+        enemy_name=enemy.name,
+        result="lose",
+        turns=turns,
+    )
+
     return {
         "result": "lose",
         "turns": turns,
@@ -459,6 +566,13 @@ def _lose(player, enemy, turns, log):
 def _flee(player, enemy, turns, log):
     log(f"  {player.name} flees the battle. Win streak reset.")
     player.reset_streak()
+
+    player.record_battle(
+        enemy_name=enemy.name,
+        result="flee",
+        turns=turns,
+    )
+
     return {
         "result": "flee",
         "turns": turns,
@@ -468,6 +582,13 @@ def _flee(player, enemy, turns, log):
 
 def _draw(player, enemy, turns, log):
     log(f"  Battle drags on — both sides retreat. (Draw after {turns} turns)")
+
+    player.record_battle(
+        enemy_name=enemy.name,
+        result="draw",
+        turns=turns,
+    )
+
     return {
         "result": "draw",
         "turns": turns,
@@ -642,3 +763,4 @@ if __name__ == "__main__":
     rng2 = random.Random(7)
     result2 = run_battle(p2, e2, rng=rng2, auto=True, verbose=True)
     print(f"\nResult: {result2['result']} in {result2['turns']} turns.")
+
