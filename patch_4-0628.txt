@@ -1,0 +1,120 @@
+cat > changes.txt << 'EOF'
+CHANGELOG — Hogwarts: A Wizard's Journey
+=========================================
+
+Session: Multi-enemy combat + Wand Focus system
+Date: current session
+
+
+MULTI-ENEMY COMBAT
+------------------
++ Combat supports 1+ enemies in a single battle.
++ Player attacks prompt for target when 2+ enemies alive.
++ Death Eater's Dark Mark summons a Dark Wizard Apprentice at 50% HP.
++ Aragog's Brood Mother spawns Hatchlings at 50% and 25% HP.
++ Summons act starting the round after they spawn.
++ Duplicate enemies get numbered labels (e.g., "Hatchling #1").
++ Rewards aggregate across all enemies in a fight.
++ Boss flee remains blocked.
++ Training Dummy doesn't advance bond or streak (practice-only flag).
+
+
+WAND & GEAR
+-----------
++ New hub menu option: "Wand & Gear".
++ View Wand Details — shows wood, core, focus, bond level,
+  all four foci's progress, and all active bonuses.
++ View Equipped Gear — shows each slot and its bonuses.
++ Change Wand Wood       (25 G)
++ Change Wand Core       (25 G)
++ Change Bond Focus      (40 G)
++ Wand upgrades are kept forever — never lost on swap.
+
+
+BOND FOCI
+---------
++ 4 Bond Foci replace the single bond curve:
+    Warrior's Focus   — damage and attack rolls
+    Scholar's Focus   — accuracy and mana efficiency
+    Warden's Focus    — HP and defense
+    Trickster's Focus — agility and initiative
++ Each focus tracks wins separately.
++ Switching focus preserves the old focus's progress.
++ Player picks 1 at character creation.
++ Additional foci unlock at Level 3, 5, 7 (player picks order).
++ Unlock prompt fires after the battle where you level up.
+
+
+MID-BATTLE ITEMS
+----------------
++ Press "I" during combat to open the item menu.
++ Potions auto-target self.
++ Combat items prompt for target when 2+ enemies alive.
++ Using any item costs your turn.
+
+
+ENEMY HINTS
+-----------
++ Every enemy now has a one-line "hint" shown before the fight.
++ Example: "⚠ Steals 3 Galleons every time it hits you."
++ Design purpose: fair fights, teaches mechanics upfront.
+
+
+RECENT ACTIONS
+--------------
++ New hub menu option: "Recent Actions".
++ Shows last 5 battles (enemy, result, turns, rewards).
++ Saved to savegame.json.
+
+
+TRAINING DUMMY FIXES
+--------------------
++ Token drop chance set to 0% (no more free tokens).
++ No streak progress (practice enemy).
++ No bond progress.
++ Still gives normal XP and Galleons — slow but available.
+
+
+HELP MENU
+---------
++ Added Wand & Bond Focus section.
++ Added Enemy Hints section.
++ Added Recent Actions section.
++ Combat section lists I / ? / F keys.
++ Tips updated for Bond Focus experimentation.
+
+
+GAME STATE (Year System — designed, not yet built)
+--------------------------------------------------
++ Year 1: Levels 1-10
++ Year 2: Levels 11-20
++ ...Year 7: Levels 61-70
++ Attribute caps grow per year: 10 / 12 / 14 / 16 / 18 / 20 / 22
++ Spell caps grow per year: 5 / 7 / 9 / 11 / 13 / 15 / 17
++ Year transition: +5 attribute points, +1 to each house attr,
+  streak reset, everything else carries over.
++ Year 1 bosses (Aragog, Voldemort) trigger at Level 11.
++ Boss defeat at Level 11 is a Year 1 finale.
+
+
+KNOWN LIMITATIONS
+-----------------
+- Year system is designed but not implemented in code yet.
+- Boss gauntlet exists in main.py but hooks into Level 11 (not yet tested).
+- Lucky Charm reroll, Fire Protection potion, first-clear XP bonus,
+  and diminishing returns are all still stubs (rule exists, wiring doesn't).
+- Saves from before the multi-enemy + Bond Focus update are incompatible.
+
+
+FILES TOUCHED THIS SESSION
+--------------------------
+- Data.py       (BOND_FOCI, BOND_FOCUS_KEYS, BOND_FOCUS_UNLOCK_LEVELS, fees)
+- Player.py     (bond methods replaced, change_wand_* methods added)
+- Combat.py     (multi-enemy support, summons, target prompt)
+- Enemy.py      (is_boss flag, no_streak flag)
+- main.py       (Wand & Gear menu, focus unlock prompt, help update)
+- agent.md      (Sections 11, 13, 14, 16, 17 updated)
+- readme.md     (Wand System rewritten, hub updated, roadmap updated)
+- changes.txt   (this file, new)
+
+EOF
