@@ -131,6 +131,10 @@ def _player_turn(player, enemy, rng, log, auto=False):
         action = _prompt_player_action(player, enemy, rng, log)
 
         if action == "flee":
+            if getattr(enemy, "is_boss", False):
+                log("  You cannot flee from this fight!")
+                _player_end_of_turn(player, log)
+                return "ok"
             return "flee"
 
         if action is None:
@@ -557,10 +561,21 @@ def _lose(player, enemy, turns, log):
     log("")
     log(f"═══ DEFEAT ═══")
     log(f"  {player.name} falls after {turns} turns.")
-    lost = int(player.galleons * 0.25)
-    player.galleons -= lost
-    player.reset_streak()
-    log(f"  Lose {lost} Galleons and your win streak. Wake up in the hospital wing.")
+
+    is_boss = getattr(enemy, "is_boss", False)
+    if is_boss:
+        # Harsher penalty for boss fights
+        lost = int(player.galleons * 0.50)
+        player.galleons -= lost
+        player.reset_streak()
+        log(f"  BOSS DEFEAT — harsher penalty!")
+        log(f"  Lose {lost} Galleons (50%) and your win streak.")
+        log(f"  You wake in the hospital wing. The boss awaits another attempt.")
+    else:
+        lost = int(player.galleons * 0.25)
+        player.galleons -= lost
+        player.reset_streak()
+        log(f"  Lose {lost} Galleons and your win streak. Wake up in the hospital wing.")
 
     player.record_battle(
         enemy_name=enemy.name,

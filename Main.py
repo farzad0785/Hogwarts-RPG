@@ -13,9 +13,9 @@ from pathlib import Path
 
 from Data import (
     ENEMIES, ENEMIES_BY_TIER,
-    POTIONS,
-    GEAR, GEAR_SLOTS,
+    POTIONS, GEAR, GEAR_SLOTS,
     ATTRIBUTES, ATTR_DISPLAY,
+    YEAR_LEVEL_RANGE, ATTRIBUTE_CAP_BY_YEAR, SPELL_CAP_BY_YEAR,
     HOUSES, HOUSE_KEYS,
 )
 from Player import Player, WAND_WOOD_BONUS, WAND_CORES
@@ -197,6 +197,114 @@ def show_recent_actions(player):
     print("═" * 60)
     pause()
 
+BOSS_GAUNTLET = ["aragog", "voldemort"]
+
+def boss_gate_available(player):
+    """True if the player is at Year 1 boss trigger and hasn't beaten them."""
+    if player.year != 1:
+        return False
+    if not player.at_year_finale_level():
+        return False
+    for boss_key in BOSS_GAUNTLET:
+        if boss_key not in player.bosses_defeated:
+            return True
+    return False
+
+
+def boss_gauntlet_flow(player):
+    """Fight both bosses in sequence. No retreat."""
+    print()
+    print("═" * 60)
+    print("  ⚠  THE YEAR'S FINAL TRIAL")
+    print("═" * 60)
+    print()
+    print("  The school year has ended. Two dark forces await you.")
+    print("  There is no retreat. Defeat means starting over.")
+    print()
+    print("  Boss 1: Aragog (Forbidden Forest)")
+    print("  Boss 2: Lord Voldemort (Chamber of Secrets)")
+    print()
+    choice = prompt("  Face your destiny? (y/n) > ").lower()
+    if choice not in ("y", "yes"):
+        print("  You step back. But the darkness will wait.")
+        return
+
+    rng = random.Random()
+    for boss_key in BOSS_GAUNTLET:
+        if boss_key in player.bosses_defeated:
+            continue
+
+        # ---- Heal between bosses (except first) ----
+        if player.bosses_defeated:
+            print()
+            print("  You catch your breath before the next fight...")
+            player.full_restore()
+
+        boss = Enemy(boss_key)
+        boss_data = ENEMIES[boss_key]
+        print()
+        print("═" * 60)
+        print(f"  ⚠  BOSS BATTLE: {boss_data['name']}")
+        print("═" * 60)
+        print(f"    Level {boss.level}   HP {boss.max_hp}   "
+              f"MD {boss.md}   PD {boss.pd}")
+        if boss_data.get("hint"):
+            print()
+            print(f"    ⚠ {boss_data['hint']}")
+        print()
+
+        result = run_battle(player, boss, rng=rng, auto=False, verbose=True)
+
+        if result["result"] == "lose":
+            print()
+            print("  You have been defeated. Return when you are stronger.")
+            pause()
+            return
+
+        # Boss beaten
+        player.bosses_defeated.append(boss_key)
+        save_game(player)
+        print()
+        print(f"  ★ {boss_data['name']} has fallen!")
+        pause()
+
+    # All bosses done
+    year_complete(player)
+
+
+def year_complete(player):
+    """Celebration + year transition."""
+    print()
+    print("═" * 60)
+    print("  ★  YEAR 1 COMPLETE  ★")
+    print("═" * 60)
+    print()
+    print(f"  Congratulations, {player.name} of {HOUSES[player.house]['name']}.")
+    print()
+    print(f"  Kills recorded:    {len(player.discovered_enemies)} species")
+    print(f"  Gold earned:       {player.galleons} G")
+    print(f"  Spells known:      {len(player.known_spells)}")
+    print(f"  Wand bond:         {player.bond_name()}")
+    print()
+    pause("  Press Enter to begin Year 2. ")
+
+    summary = player.advance_year()
+
+    print()
+    print("═" * 60)
+    print(f"  ★  YEAR {summary['new_year']} BEGINS  ★")
+    print("═" * 60)
+    print()
+    print(f"  +{summary['attr_points_gained']} Attribute Points")
+    for attr, val in summary["house_attrs"].items():
+        print(f"  +1 {attr.title()} (house blessing) — now {val}")
+    print(f"  New attribute cap: {summary['new_attr_cap']}")
+    print(f"  New spell cap:     {summary['new_spell_cap']}")
+    print()
+    print("  New areas unlocked. New challenges await.")
+    print()
+    pause()
+
 def print_banner():
     print()
     print("═" * 60)
@@ -366,6 +474,9 @@ def save_game(player, path=SAVE_FILE):
         "win_streak":     player.win_streak,
         "discovered_enemies": player.discovered_enemies,
         "battle_log":     player.battle_log,
+        "year":             player.year,
+        "bosses_defeated":  player.bosses_defeated,
+        "year_bonuses":     player.year_bonuses,
     }
     Path(path).write_text(json.dumps(data, indent=2))
 
@@ -402,6 +513,9 @@ def try_load(path=SAVE_FILE):
     p.win_streak         = data.get("win_streak", 0)
     p.discovered_enemies = data.get("discovered_enemies", [])
     p.battle_log = data.get("battle_log", [])
+    p.year             = data.get("year", 1)
+    p.bosses_defeated  = data.get("bosses_defeated", [])
+    p.year_bonuses     = data.get("year_bonuses", {})
 
     print(f"\n  Loaded {p.name} (Level {p.level}).")
     return p
@@ -416,7 +530,7 @@ def main_hub(player):
         print()
         print("═" * 56)
         house_str = f" of {HOUSES[player.house]['name']}" if player.house else ""
-        print(f"  HUB — {player.name}{house_str}, Level {player.level}")
+        print(f"  HUB — {player.name}{house_str}, Year {player.year}, Level {player.level}")
         print(f"  HP {player.current_hp}/{player.max_hp()}   "
               f"Mana {player.current_mana}/{player.max_mana()}   "
               f"Galleons {player.galleons}   Tokens {player.spell_tokens}")
@@ -426,6 +540,8 @@ def main_hub(player):
 
         if player.attr_points:
             print(f"  ⚠ {player.attr_points} unspent Attribute Point(s)")
+        boss_ready = boss_gate_available(player)
+
         print("  1. Fight")
         print("  2. Shops")
         print("  3. Inventory & Gear")
@@ -434,8 +550,13 @@ def main_hub(player):
         print("  6. Help / How to Play")
         print("  7. Recent Actions")
         print("  8. Save Game")
+        if boss_ready:
+            print("  ⚠  9. FACE YOUR DESTINY")
         print("  0. Save & Quit")
         print("═" * 56)
+
+        if boss_ready:
+            print("  The final trial awaits. Type 9 when ready.")
 
         choice = prompt("  > ")
         if choice == "0":
@@ -461,6 +582,8 @@ def main_hub(player):
         elif choice == "8":
             save_game(player)
             print("  Game saved.")
+        elif choice == "9" and boss_ready:
+            boss_gauntlet_flow(player)
 
 
 # ============================================================
@@ -728,3 +851,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+main_hub()

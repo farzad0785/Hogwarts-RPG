@@ -21,6 +21,8 @@ from Data import (
     WAND_UPGRADES,
     HOUSES,
     STREAK_BONUS_PER_WIN, STREAK_CAP,
+    YEAR_LEVEL_RANGE, ATTRIBUTE_CAP_BY_YEAR, SPELL_CAP_BY_YEAR,
+    ATTR_POINTS_PER_YEAR, HOUSE_ATTR_BONUS_PER_YEAR,
 )
 
 
@@ -63,6 +65,9 @@ class Player:
         self.win_streak = 0
         self.discovered_enemies = []     # list of enemy keys (Hufflepuff)
         self.battle_log = []
+        self.year = 1
+        self.bosses_defeated = []        # list of boss keys beaten
+        self.year_bonuses = {}           # {"attr": +N, "house_bonus": +N} per year
 
         # Attributes
         self.base_attrs = dict(attrs) if attrs else dict(STARTING_ATTRS)
@@ -103,6 +108,22 @@ class Player:
     # --------------------------------------------------------
     # ATTRIBUTES
     # --------------------------------------------------------
+    def attribute_cap(self):
+        return ATTRIBUTE_CAP_BY_YEAR.get(self.year, 22)
+
+    def spell_cap(self):
+        return SPELL_CAP_BY_YEAR.get(self.year, 17)
+
+    def is_maxed_for_year(self):
+        """True if player has hit the top level of their current year."""
+        _, top = YEAR_LEVEL_RANGE[self.year]
+        return self.level >= top
+
+    def at_year_finale_level(self):
+        """True if the player should see the boss gate."""
+        _, top = YEAR_LEVEL_RANGE[self.year]
+        # Player has gone 1 level past the top (e.g. Lv 11 in Year 1)
+        return self.level > top
 
     def get_effective_attr(self, attr):
         """Base + wand bonuses + temporary modifiers, clamped 1–10."""
@@ -273,12 +294,12 @@ class Player:
         return levels_gained
 
     def spend_attr_point(self, attr):
-        """Spend one unspent attribute point on `attr`."""
+        """Spend one unspent attribute point on `attr`, respecting year cap."""
         if self.attr_points <= 0:
             return False
         if attr not in self.base_attrs:
             return False
-        if self.base_attrs[attr] >= ATTR_MAX:
+        if self.base_attrs[attr] >= self.attribute_cap():
             return False
         self.base_attrs[attr] += 1
         self.attr_points -= 1
@@ -288,6 +309,42 @@ class Player:
     def full_restore(self):
         self.current_hp = self.max_hp()
         self.current_mana = self.max_mana()
+
+    def advance_year(self):
+        """
+        Move to the next year. Called after beating the year's bosses.
+        Returns a dict describing what changed (for the completion screen).
+        """
+        if self.year >= 7:
+            return {"year": self.year, "message": "You have finished Hogwarts."}
+
+        old_year = self.year
+        self.year += 1
+
+        # ---- Bonus attribute points ----
+        self.attr_points += ATTR_POINTS_PER_YEAR
+
+        # ---- House attribute bonus ----
+        house_attrs_added = {}
+        if self.house and self.house in HOUSES:
+            for attr in HOUSES[self.house]["attr_bonus"]:
+                self.base_attrs[attr] += HOUSE_ATTR_BONUS_PER_YEAR
+                house_attrs_added[attr] = self.base_attrs[attr]
+
+        # ---- Reset streak ----
+        self.reset_streak()
+
+        # ---- Clamp resources to any new caps ----
+        self._clamp_resources()
+
+        return {
+            "old_year": old_year,
+            "new_year": self.year,
+            "attr_points_gained": ATTR_POINTS_PER_YEAR,
+            "house_attrs": house_attrs_added,
+            "new_attr_cap": self.attribute_cap(),
+            "new_spell_cap": self.spell_cap(),
+        }
 
     # --------------------------------------------------------
     # HOUSE PASSIVES
@@ -359,11 +416,14 @@ class Player:
         return spell_key in self.known_spells
 
     def learn_spell(self, spell_key):
-        """Spend tokens and learn. Returns (success, message)."""
+        """Spend tokens and learn. Respects the year's spell cap."""
         if spell_key not in SPELLS:
             return False, "Unknown spell."
         if self.knows_spell(spell_key):
             return False, "Already known."
+        cap = self.spell_cap()
+        if len(self.known_spells) >= cap:
+            return False, f"Spell capacity reached ({cap} max this year)."
         cost = SPELLS[spell_key]["token_cost"]
         if self.spell_tokens < cost:
             return False, f"Need {cost} tokens, have {self.spell_tokens}."
@@ -542,7 +602,8 @@ class Player:
         lines = []
         lines.append("━" * 50)
         house_str = f"  •  {HOUSES[self.house]['name']}" if self.house else ""
-        lines.append(f"  {self.name} — Level {self.level}{house_str}")
+        lines.append(f"  {self.name} — Year {self.year}, Level {self.level}{house_str}")
+        lines.append(f"  Attr cap: {self.attribute_cap()}   Spell cap: {self.spell_cap()}")
         lines.append("━" * 50)
         lines.append(f"  HP:   {self.current_hp} / {self.max_hp()}")
         lines.append(f"  Mana: {self.current_mana} / {self.max_mana()}")
@@ -588,6 +649,7 @@ class Player:
         lines.append("━" * 50)
         return "\n".join(lines)
 
+    sheet()
 
 # ============================================================
 # SELF-TEST

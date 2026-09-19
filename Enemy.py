@@ -56,6 +56,7 @@ class Enemy:
         # Weakness / resistance
         self.weak_to = data.get("weak_to", {})   # {"fire": 1.5}
         self.requires = data.get("requires")     # e.g. "expecto_patronum"
+        self.is_boss = data.get("boss", False)
         self.no_streak = data.get("no_streak", False)
 
         # Rewards
