@@ -454,12 +454,15 @@ no streak bonus and no tokens.
 
 ### Overview
 
-Three parts:
-1. **Wood** → +1 attribute
-2. **Core** → unique passive effect
-3. **Bond** → grows with use
+The wand has **three parts**:
 
-### Wood (Pick One)
+1. **Wood** — +1 attribute (8 options, all available from start)
+2. **Core** — unique passive effect (4 options, all available from start)
+3. **Bond Focus** — determines bond buff curve (4 options, unlocked progressively)
+
+Plus **Bond progress** which grows per focus with wins, and **wand upgrades** (permanent purchases).
+
+### Wood (8 options — pick one at start)
 
 | Wood    | Bonus         |
 |---------|---------------|
@@ -472,7 +475,7 @@ Three parts:
 | Birch   | +1 Presence   |
 | Redwood | +1 Power      |
 
-### Core (Pick One)
+### Core (4 options — pick one at start)
 
 | Core               | Effect                                          |
 |--------------------|-------------------------------------------------|
@@ -481,44 +484,101 @@ Three parts:
 | Unicorn Hair       | +2 Spell Accuracy, -1 Spell Damage              |
 | Thestral Tail Hair | +2 Damage vs enemies below 50% HP               |
 
-### Bond Levels (grows with battles won)
+### Bond Foci (4 options — progressive unlock)
 
-| Bond            | Wins | Bonus                              |
-|-----------------|------|------------------------------------|
-| 1 (New)         | 0    | —                                  |
-| 2 (Familiar)    | 5    | +1 Spell Accuracy                  |
-| 3 (Attuned)     | 10   | +1 Spell Damage                    |
-| 4 (Bonded)      | 20   | +1 Control                         |
-| 5 (Loyal)       | 50   | -1 Mana cost (min 1)               |
-| 6 (Devoted)     | 70   | +1 Power                           |
-| 7 (Inseparable) | 85   | +1 Spell Accuracy, +1 Spell Damage |
-| 8 (Legendary)   | 100  | +1 Control, +1 Power               |
+Player picks 1 at character creation. Additional foci unlock at **Level 3, 5, and 7** (player picks which order).
 
-**Bond is tied to that wand.** Swapping resets bond to 1.
+Each focus tracks its own win count. Switching focus preserves progress on the old focus.
 
-### Player Picks Their Own Wand
+#### ⚔ Warrior's Focus — Offense
+| Bond | Wins | Bonus |
+|---|---|---|
+| New | 0 | — |
+| Familiar | 5 | +1 Spell Damage |
+| Attuned | 10 | +1 Attack Rolls |
+| Bonded | 20 | +1 Power |
+| Loyal | 50 | +1 Spell Damage |
+| Devoted | 70 | +1 Power |
+| Inseparable | 85 | +1 Spell Damage, +1 Attack Rolls |
+| Legendary | 100 | +1 Power, +1 Attack Rolls |
 
-At Ollivander's, player chooses from 8 combinations of wood + core.
+#### 📖 Scholar's Focus — Precision
+| Bond | Wins | Bonus |
+|---|---|---|
+| New | 0 | — |
+| Familiar | 5 | +1 Spell Accuracy |
+| Attuned | 10 | +1 Control |
+| Bonded | 20 | +1 Spell Accuracy |
+| Loyal | 50 | -1 Mana cost (min 1) |
+| Devoted | 70 | +1 Control |
+| Inseparable | 85 | +1 Spell Accuracy, +1 Control |
+| Legendary | 100 | +1 Spell Accuracy, +1 Control |
 
-### Swapping Wands
+#### 🛡 Warden's Focus — Defense
+| Bond | Wins | Bonus |
+|---|---|---|
+| New | 0 | — |
+| Familiar | 5 | +2 Max HP |
+| Attuned | 10 | +1 Willpower |
+| Bonded | 20 | +2 Max HP |
+| Loyal | 50 | +1 Physical Defense |
+| Devoted | 70 | +2 Max HP |
+| Inseparable | 85 | +1 Willpower, +2 Max HP |
+| Legendary | 100 | +4 Max HP, +1 Magical Defense |
 
-| Rule      | Detail                      |
-|-----------|-----------------------------|
-| Slot      | Wand is 1 of 6 gear slots   |
-| Swapping  | Free, outside of combat     |
-| Bond      | Resets to 1 on the new wand |
-| Old wand  | Lost (for now)              |
-| Best wand | Depends on build            |
+#### 🎭 Trickster's Focus — Utility
+| Bond | Wins | Bonus |
+|---|---|---|
+| New | 0 | — |
+| Familiar | 5 | +1 Agility |
+| Attuned | 10 | +1 Perception |
+| Bonded | 20 | +1 Agility |
+| Loyal | 50 | +1 Initiative |
+| Devoted | 70 | +1 Perception |
+| Inseparable | 85 | +1 Agility, +1 Initiative |
+| Legendary | 100 | +1 Agility, +1 Perception |
+
+### Changing Wand Parts
+
+From the **Wand & Gear** menu (hub option 4):
+
+| Change            | Fee  | Notes                        |
+|-------------------|------|------------------------------|
+| Change Wood       | 25 G | Bond progress unaffected     |
+| Change Core       | 25 G | Bond progress unaffected     |
+| Change Bond Focus | 40 G | Old focus progress preserved |
+
+Wand upgrades are **kept forever** — they're never lost, even if you swap parts.
+
+### Wand & Gear Menu
+1. View Wand Details
+
+2. View Equipped Gear
+
+3. Change Wand Wood (25 G)
+
+4. Change Wand Core (25 G)
+
+5. Change Bond Focus (40 G)
+
+6. Back
+
+
+**Wand Details screen** shows:
+- Current wood, core, focus
+- Current bond level and wins
+- All 4 foci's progress (with 🔒 for locked)
+- All active bonuses (wood, core, bond, upgrades)
 
 ### Design Rules
 
 1. Wood = +1 attribute.
 2. Core = special passive.
-3. Bond grows with use.
-4. Swapping resets bond.
-5. Length/flexibility = flavor only.
-6. No objectively the best wand.
-
+3. Bond Focus = themed buff curve, tracks separately.
+4. All woods and cores available from start (fees are the only gate).
+5. Bond Foci unlock at Level 3, 5, 7.
+6. Wand upgrades are permanent.
+7. Swapping focus resets nothing — old progress is preserved.
 ---
 
 ## 12. HELP SYSTEM
@@ -545,8 +605,9 @@ Single function in `main.py` → `show_help()`.
 
 - Classes & festivals (XP + temp modifiers + story)
 - Full 20-spell list (Year 2+)
-- Multi-enemy combat (needed for Aragog + Death Eater summons)
-- Boss encounter flow (Level 10 trigger for Aragog / Voldemort)
+- Boss encounter flow (Level 11 trigger for Aragog / Voldemort)
+- Year transition system (Year 1 → Year 2)
+- Year 2+ content (enemies, spells, areas)
 - Story / quests / areas
 - FastAPI web version
 - Save/load multiple slots
@@ -558,54 +619,65 @@ Single function in `main.py` → `show_help()`.
 
 ## 14. DESIGN DECISIONS LOG
 
-| Decision                 | Choice                               | Why                                  |
-|--------------------------|--------------------------------------|--------------------------------------|
-| Randomness               | d20 + stats                          | Swingy, exciting, replayable         |
-| 8 attributes             | Physical / mental / social / magical | Covers all playstyles                |
-| Cap at 10                | Small numbers                        | Meaningful, easy to balance          |
-| Mana regen +2/turn       | —                                    | Prevents spell spam                  |
-| 1 action/turn            | —                                    | Simple, tactical                     |
-| 5 starter spells         | Complete toolkit                     | Room to grow                         |
-| Generic spell tokens     | Any token = any spell                | Simple, flexible                     |
-| Classes/festivals        | Deferred                             | Keep scope small                     |
-| Starting tokens          | 2                                    | Medium pace                          |
-| HP/Mana per level        | +5 / +3                              | Keeps combat tense                   |
-| No respec                | Permanent choices                    | Weight to decisions                  |
-| Potions cost a turn      | Yes                                  | Real tradeoff in combat              |
-| Gear slots               | 6                                    | Enough depth, not overwhelming       |
-| Selling items            | 50% of buy                           | Inventory management                 |
-| Shop unlock              | Level 2                              | Let player gather money first        |
-| Wand wood bonus          | +1 attribute                         | Simple, clear                        |
-| Wand core                | Unique passive                       | Wand personality                     |
-| Wand bond                | 8 levels                             | Slow, meaningful progression         |
-| House selection          | Random + 1 reroll                    | Magic-hat feel, some agency          |
-| Gryffindor bonus         | Clutch (below 20% HP)                | Rewards risky, brave play            |
-| Hufflepuff bonus         | +2 HP per species                    | Rewards exploration                  |
-| Ravenclaw bonus          | +1 token per 4-streak                | Rewards consistency                  |
-| Slytherin bonus          | -20% buy / +10% sell                 | Cunning trader                       |
-| Win streak bonus         | +15% per win, cap +75%               | Rewards risk, scales with difficulty |
-| Streak resets            | Rest / loss / flee                   | Rest becomes a real cost             |
-| Help system              | Hub menu + first-time prompt         | Accessibility                        |
-| Training Dummy no streak | Yes                                  | Prevents streak/bond farming         |
-| Training Dummy no tokens | 0% drop                              | Prevents Ravenclaw token farm        |
-| Enemy hints              | One-line warning before fight        | Fair fights, teaches mechanics       |
-| Mid-battle items         | I key in action menu                 | Potions finally usable where needed  |
-| Recent Actions           | Last 5 battles, saved                | Game feels less like a slot machine  |
-| Boss tier                | Excluded from random encounters      | Reserved for Level 10 endgame        |
-| Bond fix                 | Training Dummy skipped               | Bond earned from real battles only   |
+| Decision                             | Choice                               | Why                                     |
+|--------------------------------------|--------------------------------------|-----------------------------------------|
+| Randomness                           | d20 + stats                          | Swingy, exciting, replayable            |
+| 8 attributes                         | Physical / mental / social / magical | Covers all playstyles                   |
+| Cap at 10                            | Small numbers                        | Meaningful, easy to balance             |
+| Mana regen +2/turn                   | —                                    | Prevents spell spam                     |
+| 1 action/turn                        | —                                    | Simple, tactical                        |
+| 5 starter spells                     | Complete toolkit                     | Room to grow                            |
+| Generic spell tokens                 | Any token = any spell                | Simple, flexible                        |
+| Classes/festivals                    | Deferred                             | Keep scope small                        |
+| Starting tokens                      | 2                                    | Medium pace                             |
+| HP/Mana per level                    | +5 / +3                              | Keeps combat tense                      |
+| No respec                            | Permanent choices                    | Weight to decisions                     |
+| Potions cost a turn                  | Yes                                  | Real tradeoff in combat                 |
+| Gear slots                           | 6                                    | Enough depth, not overwhelming          |
+| Selling items                        | 50% of buy                           | Inventory management                    |
+| Shop unlock                          | Level 2                              | Let player gather money first           |
+| Wand wood bonus                      | +1 attribute                         | Simple, clear                           |
+| Wand core                            | Unique passive                       | Wand personality                        |
+| Wand bond                            | 8 levels                             | Slow, meaningful progression            |
+| House selection                      | Random + 1 reroll                    | Magic-hat feel, some agency             |
+| Gryffindor bonus                     | Clutch (below 20% HP)                | Rewards risky, brave play               |
+| Hufflepuff bonus                     | +2 HP per species                    | Rewards exploration                     |
+| Ravenclaw bonus                      | +1 token per 4-streak                | Rewards consistency                     |
+| Slytherin bonus                      | -20% buy / +10% sell                 | Cunning trader                          |
+| Win streak bonus                     | +15% per win, cap +75%               | Rewards risk, scales with difficulty    |
+| Streak resets                        | Rest / loss / flee                   | Rest becomes a real cost                |
+| Help system                          | Hub menu + first-time prompt         | Accessibility                           |
+| Training Dummy no streak             | Yes                                  | Prevents streak/bond farming            |
+| Training Dummy no tokens             | 0% drop                              | Prevents Ravenclaw token farm           |
+| Enemy hints                          | One-line warning before fight        | Fair fights, teaches mechanics          |
+| Mid-battle items                     | I key in action menu                 | Potions finally usable where needed     |
+| Recent Actions                       | Last 5 battles, saved                | Game feels less like a slot machine     |
+| Boss tier                            | Excluded from random encounters      | Reserved for Level 10 endgame           |
+| Bond fix                             | Training Dummy skipped               | Bond earned from real battles only      |
+| Multi-enemy combat                   | Supported                            | Needed for Aragog / Death Eater summons |
+| Mid-battle items                     | I key in combat menu                 | Potions usable where they matter        |
+| Enemy hints                          | Pre-fight warning                    | Fair fights, teaches mechanics          |
+| Training Dummy no streak/bond/tokens | 0% drops, skipped                    | Prevents farming exploits               |
+| Recent Actions                       | Last 5 battles, saved                | Game feels less like a slot machine     |
+| Wand & Gear menu                     | Hub option 4                         | View/change wand parts                  |
+| Wand parts                           | Wood + Core + Bond Focus             | 3-part system for depth                 |
+| Bond Foci                            | 4 themes, progressive unlock         | Rewards experimentation                 |
+| Focus unlock                         | Level 3, 5, 7                        | Paced progression                       |
+| Focus switch fee                     | 40 G                                 | Small cost, big choice                  |
+| Wand upgrades kept                   | Forever                              | Player investment respected             |
 ---
 
 ## 15. FILE STRUCTURE
-wizard_rpg/
-├── Agent.md # this design doc
-├── Readme.md # player-facing readme
-├── Data.py # all constants (attributes, spells, enemies, items, houses)
-├── Player.py # Player class
-├── Enemy.py # Enemy class
-├── Spells.py # Spell casting & resolution
-├── Combat.py # Battle loop
-├── Items.py # Inventory, potions, gear
-├── Shop.py # Spell shop, apothecary, wand smith
+wizard_rpg\
+├── Agent.md # this design doc\
+├── Readme.md # player-facing readme\
+├── Data.py # all constants (attributes, spells, enemies, items, houses)\
+├── Player.py # Player class\
+├── Enemy.py # Enemy class\
+├── Spells.py # Spell casting & resolution\
+├── Combat.py # Battle loop\
+├── Items.py # Inventory, potions, gear\
+├── Shop.py # Spell shop, apothecary, wand smith\
 └── main.py # Entry point — title, hub, character creation
 
 
@@ -613,10 +685,10 @@ wizard_rpg/
 
 ## 16. NEXT STEPS
 
-1. Boss encounter flow (Level 10 → Aragog or Voldemort)
-2. Multi-enemy combat (needed for boss summons)
+1. Boss encounter flow (Level 11 → Aragog + Voldemort)
+2. Year transition system (Year 1 → Year 2)
 3. Add classes & festivals system
-4. Add Year 2 spells
+4. Add Year 2 content (spells, enemies, areas)
 5. Add first-clear XP bonus + diminishing returns
 6. Story / quests / areas
 
@@ -633,6 +705,9 @@ wizard_rpg/
 - **Clutch** = Gryffindor's below-20%-HP combat bonus
 - **Hint** = One-line mechanical warning shown before a battle
 - **Boss Tier** = Special enemy tier (`"boss"`), excluded from random encounters
+- **Bond Focus** = Wand's buff theme (Warrior / Scholar / Warden / Trickster)
+- **Focus Progress** = Per-focus win count (tracked separately)
+- **Multi-Enemy** = Battles with 2+ enemies (summons, groups)
 ---
 
 *End. Update after each design session.*
