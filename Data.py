@@ -848,16 +848,75 @@ WAND_CORES = {
     },
 }
 
-WAND_BOND_LEVELS = [
-    (0,   {}),
-    (5,   {"spell_accuracy": 1}),
-    (10,  {"spell_damage": 1}),
-    (20,  {"control": 1}),
-    (50,  {"mana_discount": 1}),
-    (70,  {"power": 1}),
-    (85,  {"spell_accuracy": 1, "spell_damage": 1}),
-    (100, {"control": 1, "power": 1}),
-]
+# ============================================================
+# BOND FOCI
+# ============================================================
+
+BOND_FOCI = {
+    "warrior": {
+        "name": "Warrior's Focus",
+        "description": "The wand hungers for battle. Damage and attack rolls.",
+        "levels": [
+            (0,   {}),
+            (5,   {"spell_damage": 1}),
+            (10,  {"attack_rolls": 1}),
+            (20,  {"power": 1}),
+            (50,  {"spell_damage": 1}),
+            (70,  {"power": 1}),
+            (85,  {"spell_damage": 1, "attack_rolls": 1}),
+            (100, {"power": 1, "attack_rolls": 1}),
+        ],
+    },
+    "scholar": {
+        "name": "Scholar's Focus",
+        "description": "Knowledge sharpens every spell. Accuracy and efficiency.",
+        "levels": [
+            (0,   {}),
+            (5,   {"spell_accuracy": 1}),
+            (10,  {"control": 1}),
+            (20,  {"spell_accuracy": 1}),
+            (50,  {"mana_discount": 1}),
+            (70,  {"control": 1}),
+            (85,  {"spell_accuracy": 1, "control": 1}),
+            (100, {"spell_accuracy": 1, "control": 1}),
+        ],
+    },
+    "warden": {
+        "name": "Warden's Focus",
+        "description": "The wand shields its wielder. HP and defense.",
+        "levels": [
+            (0,   {}),
+            (5,   {"max_hp": 2}),
+            (10,  {"willpower": 1}),
+            (20,  {"max_hp": 2}),
+            (50,  {"physical_defense": 1}),
+            (70,  {"max_hp": 2}),
+            (85,  {"willpower": 1, "max_hp": 2}),
+            (100, {"max_hp": 4, "magical_defense": 1}),
+        ],
+    },
+    "trickster": {
+        "name": "Trickster's Focus",
+        "description": "The wand moves before you do. Speed and utility.",
+        "levels": [
+            (0,   {}),
+            (5,   {"agility": 1}),
+            (10,  {"perception": 1}),
+            (20,  {"agility": 1}),
+            (50,  {"initiative": 1}),
+            (70,  {"perception": 1}),
+            (85,  {"agility": 1, "initiative": 1}),
+            (100, {"agility": 1, "perception": 1}),
+        ],
+    },
+}
+
+BOND_FOCUS_KEYS = list(BOND_FOCI.keys())
+BOND_FOCUS_UNLOCK_LEVELS = [3, 5, 7]
+
+WAND_WOOD_FEE = 25
+WAND_CORE_FEE = 25
+WAND_FOCUS_FEE = 40
 
 BOND_NAMES = [
     "New", "Familiar", "Attuned", "Bonded",

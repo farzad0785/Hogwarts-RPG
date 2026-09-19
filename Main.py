@@ -17,6 +17,9 @@ from Data import (
     ATTRIBUTES, ATTR_DISPLAY,
     YEAR_LEVEL_RANGE, ATTRIBUTE_CAP_BY_YEAR, SPELL_CAP_BY_YEAR,
     HOUSES, HOUSE_KEYS,
+    BOND_FOCI, BOND_FOCUS_KEYS, BOND_FOCUS_UNLOCK_LEVELS,
+    WAND_WOOD_FEE, WAND_CORE_FEE, WAND_FOCUS_FEE,
+    BOND_NAMES, WAND_UPGRADES
 )
 from Player import Player, WAND_WOOD_BONUS, WAND_CORES
 from Enemy import Enemy, random_enemy_key
@@ -112,7 +115,12 @@ def show_help():
             "Natural 1  = fumble (miss + lose 3 extra mana).",
             "Mana regenerates +2 per turn.",
             "You get 1 action per turn: cast a spell, use an item, or flee.",
-            "Using a potion in combat costs your turn.",
+            "",
+            "Mid-battle controls:",
+            "  I  = use a potion or combat item",
+            "  ?  = see spell details",
+            "  F  = flee",
+            "  Using an item costs your turn.",
         ]),
         ("SPELLS", [
             "Flipendo    (5 mana)  — cheap damage + weakens enemy",
@@ -124,7 +132,8 @@ def show_help():
             "More spells unlock in future years.",
         ]),
         ("WIN STREAK", [
-            "Consecutive wins (without resting, losing, or fleeing) boost XP and Galleons.",
+            "Consecutive wins (without resting, losing, or fleeing)",
+            "boost XP and Galleons.",
             "Each win adds +15%, up to +75% at 5+ wins.",
             "Resting or losing resets your streak.",
         ]),
@@ -134,12 +143,43 @@ def show_help():
             "Ravenclaw  — +1 Intellect, +1 Perception. +1 token every 4-win streak.",
             "Slytherin  — +1 Power, +1 Control. -20% shop buys, +10% sells.",
         ]),
+        ("WAND & BOND FOCUS", [
+            "Your wand has three parts:",
+            "  Wood   — +1 to a single attribute (8 options)",
+            "  Core   — unique passive effect (4 options)",
+            "  Focus  — determines your bond buff curve (4 options)",
+            "",
+            "Bond grows with wins. Higher bond = better bonuses.",
+            "Each Bond Focus tracks wins separately.",
+            "Switching focus keeps the old one's progress.",
+            "",
+            "The 4 Bond Foci:",
+            "  Warrior's Focus   — damage and attack rolls",
+            "  Scholar's Focus   — accuracy and mana efficiency",
+            "  Warden's Focus    — HP and defense",
+            "  Trickster's Focus — agility and initiative",
+            "",
+            "You pick 1 at start. More unlock at Level 3, 5, and 7.",
+            "Change wand parts from the 'Wand & Gear' menu (small fee).",
+        ]),
+        ("ENEMY HINTS", [
+            "Before every fight, you'll see a one-line warning",
+            "about the enemy's special mechanic.",
+            "",
+            "Pay attention — they matter!",
+            "Example: '⚠ Steals 3 Galleons every time it hits you.'",
+        ]),
+        ("RECENT ACTIONS", [
+            "See your last 5 battles from the main hub.",
+            "Shows: enemy, result, turns, and rewards.",
+        ]),
         ("TIPS", [
             "Rest only when you need to — it resets your win streak.",
             "Fight enemies at or above your level for more XP.",
             "Manage mana: don't blow it all on Incendio early.",
             "Protego before a big enemy turn can save your life.",
             "Check the shops after every couple of fights.",
+            "Practice Bond Focus switching from the Wand & Gear menu.",
         ]),
     ]
 
@@ -363,14 +403,25 @@ def create_character():
     print()
     core = choose_from(core_keys, "core")
 
+    # ---- Bond Focus ----
+    print()
+    print("  Choose your Bond Focus (grows as you win battles):")
+    focus_keys = BOND_FOCUS_KEYS
+    for i, fk in enumerate(focus_keys, start=1):
+        f = BOND_FOCI[fk]
+        print(f"    {i}. {f['name']:<22}  {f['description']}")
+    print()
+    focus = choose_from(focus_keys, "focus")
+
     # ---- Build player ----
-    p = Player(name=name, wand_wood=wood, wand_core=core)
+    p = Player(name=name, wand_wood=wood, wand_core=core, wand_focus=focus)
     p.house = house_key
     add_to_inventory(p, "potions", "healing_draught", 1)
 
     print()
     print(f"  Welcome, {name} of {HOUSES[house_key]['name']}.")
     print(f"  Your wand: {wood.title()} + {WAND_CORES[core]['name']}")
+    print(f"  Bond Focus: {BOND_FOCI[focus]['name']}")
     print(f"  You start with Flipendo and 2 Spell Tokens.")
     print()
     choice = prompt("  Would you like a quick guide? (y/n) > ").lower()
@@ -477,6 +528,7 @@ def save_game(player, path=SAVE_FILE):
         "year":             player.year,
         "bosses_defeated":  player.bosses_defeated,
         "year_bonuses":     player.year_bonuses,
+        "pending_focus_unlock": player.pending_focus_unlock,
     }
     Path(path).write_text(json.dumps(data, indent=2))
 
@@ -516,6 +568,7 @@ def try_load(path=SAVE_FILE):
     p.year             = data.get("year", 1)
     p.bosses_defeated  = data.get("bosses_defeated", [])
     p.year_bonuses     = data.get("year_bonuses", {})
+    p.pending_focus_unlock = data.get("pending_focus_unlock", False)
 
     print(f"\n  Loaded {p.name} (Level {p.level}).")
     return p
@@ -545,13 +598,14 @@ def main_hub(player):
         print("  1. Fight")
         print("  2. Shops")
         print("  3. Inventory & Gear")
-        print("  4. Character Sheet")
-        print("  5. Rest (full restore)")
-        print("  6. Help / How to Play")
-        print("  7. Recent Actions")
-        print("  8. Save Game")
+        print("  4. Wand & Gear")
+        print("  5. Character Sheet")
+        print("  6. Rest (full restore)")
+        print("  7. Help / How to Play")
+        print("  8. Recent Actions")
+        print("  9. Save Game")
         if boss_ready:
-            print("  ⚠  9. FACE YOUR DESTINY")
+            print("  ⚠ 10. FACE YOUR DESTINY")
         print("  0. Save & Quit")
         print("═" * 56)
 
@@ -570,19 +624,21 @@ def main_hub(player):
         elif choice == "3":
             inventory_flow(player)
         elif choice == "4":
+            wand_gear_flow(player)
+        elif choice == "5":
             print()
             print(player.sheet())
             pause()
-        elif choice == "5":
-            rest(player)
         elif choice == "6":
-            show_help()
+            rest(player)
         elif choice == "7":
-            show_recent_actions(player)
+            show_help()
         elif choice == "8":
+            show_recent_actions(player)
+        elif choice == "9":
             save_game(player)
             print("  Game saved.")
-        elif choice == "9" and boss_ready:
+        elif choice == "10" and boss_ready:
             boss_gauntlet_flow(player)
 
 
@@ -622,9 +678,11 @@ def fight_flow(player):
         tier = available[idx]
         encounter(player, tier)
 
-        # Post-battle: check for unspent points, death, etc.
+        # Post-battle: check for unspent points, focus unlock, death
         if player.attr_points > 0:
             prompt_spend_points(player)
+        if player.pending_focus_unlock:
+            prompt_focus_unlock(player)
         if not player.is_alive():
             print()
             print("  You wake up in the hospital wing, sore but alive.")
@@ -688,6 +746,36 @@ def prompt_spend_points(player):
         if player.spend_attr_point(attr):
             print(f"  {ATTR_DISPLAY[attr]} increased.")
 
+def prompt_focus_unlock(player):
+    """Prompt the player to unlock a new Bond Focus."""
+    locked = player.locked_foci()
+    if not locked:
+        player.pending_focus_unlock = False
+        return
+
+    print()
+    print("═" * 56)
+    print("  ★ NEW BOND FOCUS UNLOCKED ★")
+    print("═" * 56)
+    print("  Choose a new Bond Focus to add to your wand:")
+    print()
+    for i, fk in enumerate(locked, start=1):
+        f = BOND_FOCI[fk]
+        print(f"    {i}. {f['name']:<22}  {f['description']}")
+    print("═" * 56)
+
+    while True:
+        choice = prompt("  > ")
+        if not choice.isdigit():
+            continue
+        idx = int(choice) - 1
+        if 0 <= idx < len(locked):
+            ok, msg = player.unlock_focus(locked[idx])
+            print(f"  {msg}")
+            print(f"  (Switch to it from the Wand & Gear menu.)")
+            player.pending_focus_unlock = False
+            return
+
 
 # ============================================================
 # SHOPS
@@ -718,6 +806,213 @@ def shops_flow(player):
 # ============================================================
 # INVENTORY & GEAR
 # ============================================================
+
+def wand_gear_flow(player):
+    """Wand & Gear menu — view details, change wand parts."""
+    while True:
+        print()
+        print("═" * 56)
+        print("  WAND & GEAR")
+        print("═" * 56)
+        print("  1. View Wand Details")
+        print("  2. View Equipped Gear")
+        print(f"  3. Change Wand Wood          ({WAND_WOOD_FEE} G)")
+        print(f"  4. Change Wand Core          ({WAND_CORE_FEE} G)")
+        print(f"  5. Change Bond Focus         ({WAND_FOCUS_FEE} G)")
+        print("  0. Back")
+        print("═" * 56)
+
+        choice = prompt("  > ")
+        if choice == "0":
+            return
+        elif choice == "1":
+            show_wand_details(player)
+        elif choice == "2":
+            show_gear_details(player)
+        elif choice == "3":
+            change_wand_wood_flow(player)
+        elif choice == "4":
+            change_wand_core_flow(player)
+        elif choice == "5":
+            change_wand_focus_flow(player)
+
+
+def show_wand_details(player):
+    """Full wand breakdown with all 4 foci progress."""
+    print()
+    print("═" * 56)
+    print("  YOUR WAND")
+    print("═" * 56)
+    wood = player.wand["wood"].title()
+    core_name = WAND_CORES[player.wand["core"]]["name"]
+    focus_key = player.wand["focus"]
+    focus_data = BOND_FOCI[focus_key]
+    wins = player._active_focus_wins()
+
+    print(f"  Wood:         {wood}")
+    print(f"  Core:         {core_name}")
+    print(f"  Bond Focus:   {focus_data['name']}")
+    print(f"  Bond Level:   {player.bond_name()}  ({wins} wins)")
+
+    nxt = player.bond_next_threshold()
+    if nxt:
+        needed, current = nxt
+        print(f"  Next level:   {needed} wins ({needed - current} more)")
+    else:
+        print(f"  Next level:   MAXED")
+
+    print()
+    print("  ── BOND PROGRESS BY FOCUS ──")
+    for fk in BOND_FOCUS_KEYS:
+        if fk not in player.wand["unlocked_foci"]:
+            print(f"    {BOND_FOCI[fk]['name']:<22}  🔒 Locked")
+            continue
+        fwins = player.wand["bond_progress"].get(fk, 0)
+        # Compute level
+        levels = BOND_FOCI[fk]["levels"]
+        lvl = 1
+        for i, (threshold, _) in enumerate(levels):
+            if fwins >= threshold:
+                lvl = i + 1
+        name = BOND_NAMES[lvl - 1]
+        marker = "  ← active" if fk == focus_key else ""
+        print(f"    {BOND_FOCI[fk]['name']:<22}  {fwins} wins ({name}){marker}")
+
+    print()
+    print("  ── CURRENT BONUSES ──")
+    wood_attr = WAND_WOOD_BONUS.get(player.wand["wood"])
+    if wood_attr:
+        print(f"    Wood:                +1 {wood_attr.title()}")
+
+    core = WAND_CORES[player.wand["core"]]
+    core_parts = []
+    if core.get("bonus_mana"): core_parts.append(f"+{core['bonus_mana']} Mana")
+    if core.get("hp_regen"): core_parts.append(f"+{core['hp_regen']} HP/turn")
+    if core.get("damage_modifier"): core_parts.append(f"{core['damage_modifier']:+d} Damage")
+    if core.get("accuracy_modifier"): core_parts.append(f"{core['accuracy_modifier']:+d} Accuracy")
+    if core.get("execute_bonus"): core_parts.append(f"+{core['execute_bonus']} vs wounded")
+    if core_parts:
+        print(f"    Core:                {', '.join(core_parts)}")
+
+    bond_bonuses = player._bond_bonuses()
+    if bond_bonuses:
+        parts = []
+        for k, v in bond_bonuses.items():
+            label = k.replace("_", " ").title()
+            parts.append(f"{v:+d} {label}")
+        print(f"    Bond ({player.bond_name()}):   {', '.join(parts)}")
+
+    for up_key in player.wand_upgrades:
+        up = WAND_UPGRADES.get(up_key, {})
+        if up:
+            print(f"    {up['name']}: {'effect active'}")
+
+    print("═" * 56)
+    pause()
+
+
+def show_gear_details(player):
+    """Show equipped gear and its bonuses."""
+    print()
+    print("═" * 56)
+    print("  EQUIPPED GEAR")
+    print("═" * 56)
+
+    for slot in GEAR_SLOTS:
+        key = player.equipped.get(slot)
+        if key is None:
+            print(f"  {slot.title():<8}: —")
+        else:
+            gear = GEAR[key]
+            bonus_str = ""
+            if gear.get("attrs"):
+                parts = [f"+{v} {k.title()}" for k, v in gear["attrs"].items()]
+                bonus_str = ", ".join(parts)
+            if gear.get("flats"):
+                parts = [f"+{v} {k.replace('_', ' ').title()}" for k, v in gear["flats"].items()]
+                if bonus_str:
+                    bonus_str += ", "
+                bonus_str += ", ".join(parts)
+            print(f"  {slot.title():<8}: {gear['name']:<24} {bonus_str}")
+
+    print("═" * 56)
+    pause()
+
+
+def change_wand_wood_flow(player):
+    """Pick a new wood. Fee applies."""
+    print()
+    print(f"  Current wood: {player.wand['wood'].title()}")
+    print(f"  Fee: {WAND_WOOD_FEE} G")
+    print()
+    print("  Available woods:")
+    wood_keys = list(WAND_WOOD_BONUS.keys())
+    for i, w in enumerate(wood_keys, start=1):
+        attr = WAND_WOOD_BONUS[w]
+        marker = "  ← current" if w == player.wand["wood"] else ""
+        print(f"    {i}. {w.title():<10}  (+1 {attr.title()}){marker}")
+    print("    0. Cancel")
+
+    choice = prompt("  > ")
+    if choice == "0" or not choice.isdigit():
+        return
+    idx = int(choice) - 1
+    if not (0 <= idx < len(wood_keys)):
+        return
+
+    ok, msg = player.change_wand_wood(wood_keys[idx])
+    print(f"  {msg}")
+
+
+def change_wand_core_flow(player):
+    print()
+    print(f"  Current core: {WAND_CORES[player.wand['core']]['name']}")
+    print(f"  Fee: {WAND_CORE_FEE} G")
+    print()
+    print("  Available cores:")
+    core_keys = list(WAND_CORES.keys())
+    for i, c in enumerate(core_keys, start=1):
+        marker = "  ← current" if c == player.wand["core"] else ""
+        print(f"    {i}. {WAND_CORES[c]['name']:<22}  {describe_core(WAND_CORES[c])}{marker}")
+    print("    0. Cancel")
+
+    choice = prompt("  > ")
+    if choice == "0" or not choice.isdigit():
+        return
+    idx = int(choice) - 1
+    if not (0 <= idx < len(core_keys)):
+        return
+
+    ok, msg = player.change_wand_core(core_keys[idx])
+    print(f"  {msg}")
+
+
+def change_wand_focus_flow(player):
+    unlocked = player.wand["unlocked_foci"]
+    if len(unlocked) < 2:
+        print("  You haven't unlocked another Bond Focus yet.")
+        return
+
+    print()
+    print(f"  Current focus: {BOND_FOCI[player.wand['focus']]['name']}")
+    print(f"  Fee: {WAND_FOCUS_FEE} G")
+    print()
+    print("  Unlocked foci:")
+    for i, fk in enumerate(unlocked, start=1):
+        marker = "  ← active" if fk == player.wand["focus"] else ""
+        wins = player.wand["bond_progress"].get(fk, 0)
+        print(f"    {i}. {BOND_FOCI[fk]['name']:<22}  ({wins} wins){marker}")
+    print("    0. Cancel")
+
+    choice = prompt("  > ")
+    if choice == "0" or not choice.isdigit():
+        return
+    idx = int(choice) - 1
+    if not (0 <= idx < len(unlocked)):
+        return
+
+    ok, msg = player.change_wand_focus(unlocked[idx])
+    print(f"  {msg}")
 
 def inventory_flow(player):
     while True:
@@ -852,4 +1147,3 @@ def main():
 if __name__ == "__main__":
     main()
 
-main_hub()

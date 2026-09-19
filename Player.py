@@ -16,9 +16,11 @@ from Data import (
     XP_TO_NEXT, ATTR_POINTS_PER_LEVEL,
     SPELLS, MAX_LEVEL, MANA_REGEN_PER_TURN,
     STATUS_EFFECTS,
-    WAND_WOOD_BONUS, WAND_CORES, WAND_BOND_LEVELS, BOND_NAMES,
+    WAND_WOOD_BONUS, WAND_CORES, BOND_NAMES,
     GEAR, GEAR_SLOTS, INVENTORY_LIMITS,
     WAND_UPGRADES,
+    BOND_FOCI, BOND_FOCUS_KEYS, BOND_FOCUS_UNLOCK_LEVELS,
+    WAND_WOOD_FEE, WAND_CORE_FEE, WAND_FOCUS_FEE,
     HOUSES,
     STREAK_BONUS_PER_WIN, STREAK_CAP,
     YEAR_LEVEL_RANGE, ATTRIBUTE_CAP_BY_YEAR, SPELL_CAP_BY_YEAR,
@@ -55,6 +57,7 @@ class Player:
             name="Student",
             wand_wood="holly",
             wand_core="phoenix_feather",
+            wand_focus="warrior",
             attrs=None,
     ):
         self.name = name
@@ -76,8 +79,11 @@ class Player:
         self.wand = {
             "wood": wand_wood,
             "core": wand_core,
-            "battles_won": 0,
+            "focus": wand_focus,
+            "bond_progress": {key: 0 for key in BOND_FOCUS_KEYS},
+            "unlocked_foci": [wand_focus],
         }
+        self.pending_focus_unlock = False
         self.wand_upgrades = []   # list of purchased upgrade keys
 
         # Temporary modifiers (list of {"attr", "amount", "duration", "source"})
@@ -165,6 +171,7 @@ class Player:
         eff = self.get_all_effective_attrs()
         base = 20 + eff["brawn"] * 3 + eff["willpower"] * 2 + self.level * 5
         base += self._house_hp_bonus()
+        base += self._bond_bonus("max_hp")
         return base
 
     def _house_hp_bonus(self):
@@ -185,15 +192,21 @@ class Player:
     def physical_defense(self):
         eff = self.get_all_effective_attrs()
         base = 8 + eff["agility"] + eff["brawn"]
-        return base + self._gear_flat_bonus("physical_defense")
+        base += self._gear_flat_bonus("physical_defense")
+        base += self._bond_bonus("physical_defense")
+        return base
 
     def magical_defense(self):
         eff = self.get_all_effective_attrs()
-        return 8 + eff["willpower"] + eff["control"]
+        base = 8 + eff["willpower"] + eff["control"]
+        base += self._bond_bonus("magical_defense")
+        return base
 
     def initiative_bonus(self):
         eff = self.get_all_effective_attrs()
-        return eff["agility"] + eff["perception"]
+        base = eff["agility"] + eff["perception"]
+        base += self._bond_bonus("initiative")
+        return base
 
     def spell_attack_bonus(self):
         """Added to d20 for spell attack rolls."""
@@ -201,7 +214,8 @@ class Player:
         base = eff["control"] + eff["perception"]
         core = WAND_CORES.get(self.wand["core"], {})
         base += core.get("accuracy_modifier", 0)
-        base += self._bond_bonuses().get("spell_accuracy", 0)
+        base += self._bond_bonus("spell_accuracy")
+        base += self._bond_bonus("attack_rolls")
         base += self._wand_upgrade_flat("spell_accuracy")
         base += self.gryffindor_attack_bonus()
         return base
@@ -226,7 +240,7 @@ class Player:
         """Added to spell base + scaling."""
         core = WAND_CORES.get(self.wand["core"], {})
         bonus = core.get("damage_modifier", 0)
-        bonus += self._bond_bonuses().get("spell_damage", 0)
+        bonus += self._bond_bonus("spell_damage")
         if core.get("name") == "Thestral Tail Hair" and target_hp_pct < 0.5:
             bonus += core.get("execute_bonus", 0)
         bonus += self.gryffindor_damage_bonus()
@@ -235,8 +249,8 @@ class Player:
     def get_spell_mana_cost(self, spell_key):
         """Apply wand bond mana discount."""
         cost = SPELLS[spell_key]["mana"]
-        cost -= self._bond_bonuses().get("mana_discount", 0)
-        cost -= self._wand_upgrade_flat("mana_discount")   # <-- ADD
+        cost -= self._bond_bonus("mana_discount")
+        cost -= self._wand_upgrade_flat("mana_discount")
         return max(1, cost)
 
     def _gear_flat_bonus(self, flat_name):
@@ -291,6 +305,12 @@ class Player:
             self.level += 1
             levels_gained += 1
             self.attr_points += ATTR_POINTS_PER_LEVEL
+
+            # Bond Focus unlock check
+            if self.level in BOND_FOCUS_UNLOCK_LEVELS:
+                if self.locked_foci():
+                    self.pending_focus_unlock = True
+
         return levels_gained
 
     def spend_attr_point(self, attr):
@@ -451,14 +471,115 @@ class Player:
     # WAND
     # --------------------------------------------------------
 
+    def _active_focus_data(self):
+        return BOND_FOCI.get(self.wand["focus"], BOND_FOCI["warrior"])
+
+    def _active_focus_wins(self):
+        return self.wand["bond_progress"].get(self.wand["focus"], 0)
+
     def _bond_bonuses(self):
-        """Return the bond-level bonus dict for the current wand."""
-        wins = self.wand["battles_won"]
+        """Return the active focus's current bond bonuses."""
+        wins = self._active_focus_wins()
+        levels = self._active_focus_data()["levels"]
         bonuses = {}
-        for threshold, bonus in WAND_BOND_LEVELS:
+        for threshold, bonus in levels:
             if wins >= threshold:
                 bonuses = bonus
         return bonuses
+
+    def _bond_bonus(self, key):
+        return self._bond_bonuses().get(key, 0)
+
+    def bond_level(self):
+        wins = self._active_focus_wins()
+        levels = self._active_focus_data()["levels"]
+        level = 1
+        for i, (threshold, _) in enumerate(levels):
+            if wins >= threshold:
+                level = i + 1
+        return level
+
+    def bond_name(self):
+        return BOND_NAMES[self.bond_level() - 1]
+
+    def bond_wins_total(self):
+        """Return total wins for the active focus."""
+        return self._active_focus_wins()
+
+    def bond_next_threshold(self):
+        """Return (next_wins_required, current_wins) or None if maxed."""
+        wins = self._active_focus_wins()
+        levels = self._active_focus_data()["levels"]
+        for threshold, _ in levels:
+            if wins < threshold:
+                return (threshold, wins)
+        return None
+
+    def record_battle_won(self):
+        """Increment active focus progress. Returns True if bond leveled up."""
+        old_level = self.bond_level()
+        focus = self.wand["focus"]
+        self.wand["bond_progress"][focus] = self.wand["bond_progress"].get(focus, 0) + 1
+        new_level = self.bond_level()
+        if new_level > old_level:
+            self._clamp_resources()
+            return True
+        return False
+
+    # --------------------------------------------------------
+    # WAND PART CHANGES
+    # --------------------------------------------------------
+
+    def change_wand_wood(self, wood):
+        if wood not in WAND_WOOD_BONUS:
+            return False, "Unknown wood."
+        if wood == self.wand["wood"]:
+            return False, "That's already your current wood."
+        if self.galleons < WAND_WOOD_FEE:
+            return False, f"Need {WAND_WOOD_FEE} Galleons, have {self.galleons}."
+        self.galleons -= WAND_WOOD_FEE
+        self.wand["wood"] = wood
+        self._clamp_resources()
+        return True, f"Wood changed to {wood.title()}. (-{WAND_WOOD_FEE} G)"
+
+    def change_wand_core(self, core):
+        if core not in WAND_CORES:
+            return False, "Unknown core."
+        if core == self.wand["core"]:
+            return False, "That's already your current core."
+        if self.galleons < WAND_CORE_FEE:
+            return False, f"Need {WAND_CORE_FEE} Galleons, have {self.galleons}."
+        self.galleons -= WAND_CORE_FEE
+        self.wand["core"] = core
+        self._clamp_resources()
+        return True, f"Core changed to {WAND_CORES[core]['name']}. (-{WAND_CORE_FEE} G)"
+
+    def change_wand_focus(self, focus):
+        if focus not in BOND_FOCI:
+            return False, "Unknown focus."
+        if focus not in self.wand["unlocked_foci"]:
+            return False, "Focus not yet unlocked."
+        if focus == self.wand["focus"]:
+            return False, "That's already your active focus."
+        if self.galleons < WAND_FOCUS_FEE:
+            return False, f"Need {WAND_FOCUS_FEE} Galleons, have {self.galleons}."
+        self.galleons -= WAND_FOCUS_FEE
+        self.wand["focus"] = focus
+        self._clamp_resources()
+        return True, f"Focus changed to {BOND_FOCI[focus]['name']}. (-{WAND_FOCUS_FEE} G)"
+
+    def unlock_focus(self, focus):
+        """Add a focus to the unlocked roster. Doesn't switch active focus."""
+        if focus not in BOND_FOCI:
+            return False, "Unknown focus."
+        if focus in self.wand["unlocked_foci"]:
+            return False, "Already unlocked."
+        self.wand["unlocked_foci"].append(focus)
+        return True, f"Unlocked {BOND_FOCI[focus]['name']}!"
+
+    def locked_foci(self):
+        """Return list of focus keys not yet unlocked."""
+        return [k for k in BOND_FOCUS_KEYS if k not in self.wand["unlocked_foci"]]
 
     def _wand_upgrade_flat(self, key):
         """Sum flat bonus from purchased wand upgrades (e.g. spell_accuracy)."""
@@ -475,38 +596,6 @@ class Player:
             up = WAND_UPGRADES.get(up_key, {})
             total += up.get("effect", {}).get("attr", {}).get(attr, 0)
         return total
-
-    def bond_level(self):
-        wins = self.wand["battles_won"]
-        level = 1
-        for i, (threshold, _) in enumerate(WAND_BOND_LEVELS):
-            if wins >= threshold:
-                level = i + 1
-        return level
-
-    def bond_name(self):
-        return BOND_NAMES[self.bond_level() - 1]
-
-    def record_battle_won(self):
-        """Call after a battle victory. Returns True if bond leveled up."""
-        old_level = self.bond_level()
-        self.wand["battles_won"] += 1
-        new_level = self.bond_level()
-        if new_level > old_level:
-            self._clamp_resources()
-            return True
-        return False
-    
-    def switch_wand(self, wood, core):
-        """Swap wands. Resets bond. Old wand is lost (for now)."""
-        if wood not in WAND_WOOD_BONUS:
-            return False, "Unknown wood."
-        if core not in WAND_CORES:
-            return False, "Unknown core."
-        self.wand = {"wood": wood, "core": core, "battles_won": 0}
-        self.wand_upgrades = []   # <-- ADD (upgrades are tied to the wand)
-        self._clamp_resources()
-        return True, f"Now wielding {wood.title()} + {WAND_CORES[core]['name']}."
 
     # --------------------------------------------------------
     # STATUS EFFECTS
@@ -625,8 +714,11 @@ class Player:
         lines.append("")
         wood = self.wand["wood"].title()
         core = WAND_CORES[self.wand["core"]]["name"]
+        focus = BOND_FOCI[self.wand["focus"]]["name"]
         bond = self.bond_name()
-        lines.append(f"  WAND: {wood} + {core}  (Bond: {bond}, {self.wand['battles_won']} wins)")
+        wins = self._active_focus_wins()
+        lines.append(f"  WAND: {wood} + {core}")
+        lines.append(f"  FOCUS: {focus}  (Bond: {bond}, {wins} wins)")
         lines.append("")
         spells = ", ".join(SPELLS[s]["name"] for s in self.known_spells)
         lines.append(f"  SPELLS: {spells}")
@@ -648,8 +740,6 @@ class Player:
 
         lines.append("━" * 50)
         return "\n".join(lines)
-
-    sheet()
 
 # ============================================================
 # SELF-TEST
