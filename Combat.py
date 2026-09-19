@@ -1,45 +1,53 @@
 """
-combat.py — the battle loop.
+combat.py — turn-based battle loop (multi-enemy).
 
-Ties Player + Enemy + Spells together into a full turn-based fight.
+Supports 1 or more enemies in a single battle.
 
-Flow:
-1. Roll initiative
-2. Loop:
-   a. Whoever is faster acts first
-   b. Player turn: choose spell / item / flee, resolve, tick end-of-turn
-   c. Enemy turn: check skip, choose attack, resolve, tick end-of-turn
-   d. Check win/lose
-3. Award rewards on victory
+Combatants act in initiative order:
+    - Player has one initiative roll.
+    - Each enemy has its own initiative roll.
+    - Player goes before the enemies if player_init >= highest enemy init.
+    - Otherwise, all enemies act first, then the player.
+    - Summoned enemies join at the end of the enemy phase (act next round).
+
+Targeting:
+    - Offensive spells prompt the player to pick a target (auto-picks if only 1 enemy).
+    - Support/defense spells auto-target self.
+    - Combat items auto-target (pick enemy).
+
+Summons:
+    - Death Eater's Dark Mark spawns a Dark Wizard Apprentice at 50% HP.
+    - Aragog's Brood Mother spawns Hatchlings at 50% and 25% HP.
+    - Summoned enemies are appended to the enemy list.
 """
 
 import random
 
 from Data import SPELLS, ENEMIES, HOUSES
 from Spells import cast_spell, apply_incoming_damage
-from Player import Player
+from Enemy import Enemy
 
 
 # ============================================================
 # CONSTANTS
 # ============================================================
 
-MAX_TURNS = 50   # safety valve — draws end here
+MAX_TURNS = 50
 
 
 # ============================================================
 # PUBLIC ENTRY
 # ============================================================
 
-def run_battle(player, enemy, rng=None, auto=False, verbose=True):
+def run_battle(player, enemies, rng=None, auto=False, verbose=True):
     """
-    Run one full battle.
+    Run one full battle against one or more enemies.
 
-    player : Player instance
-    enemy  : Enemy instance
-    rng    : random.Random (optional)
-    auto   : if True, player auto-casts the first affordable spell (for testing)
-    verbose: print turn-by-turn log
+    player  : Player instance
+    enemies : Enemy instance OR list of Enemy instances
+    rng     : random.Random (optional)
+    auto    : if True, player auto-casts (for testing)
+    verbose : print turn-by-turn log
 
     Returns dict: {
         "result": "win" | "lose" | "flee" | "draw",
@@ -50,20 +58,33 @@ def run_battle(player, enemy, rng=None, auto=False, verbose=True):
     if rng is None:
         rng = random.Random()
 
+    # ---- Normalize to list ----
+    if not isinstance(enemies, list):
+        enemies = [enemies]
+
+    # ---- Assign labels for duplicates ----
+    _label_enemies(enemies)
+
     log = _make_logger(verbose)
 
-    # ---------------------------------------------------------
-    # INITIATIVE
-    # ---------------------------------------------------------
+    # ---- Initiative ----
     player_init = rng.randint(1, 20) + player.initiative_bonus()
-    enemy_init = rng.randint(1, 20) + enemy.initiative_bonus
-
-    player_first = player_init >= enemy_init
+    enemy_inits = [rng.randint(1, 20) + e.initiative_bonus for e in enemies]
+    top_enemy_init = max(enemy_inits) if enemy_inits else 0
+    player_first = player_init >= top_enemy_init
 
     log("")
-    log(f"═══ BATTLE: {player.name} vs {enemy.name} ═══")
-    log(f"  Initiative — {player.name}: {player_init}  |  {enemy.name}: {enemy_init}")
-    log(f"  {player.name} goes first." if player_first else f"  {enemy.name} goes first.")
+    if len(enemies) == 1:
+        log(f"═══ BATTLE: {player.name} vs {enemies[0].label} ═══")
+    else:
+        log(f"═══ BATTLE: {player.name} vs {len(enemies)} enemies ═══")
+        for e in enemies:
+            log(f"    {e.label:<28} Lv {e.level}  HP {e.max_hp}")
+    log(f"  Initiative — {player.name}: {player_init}  |  Top enemy: {top_enemy_init}")
+    if player_first:
+        log(f"  {player.name} goes first.")
+    else:
+        log(f"  Enemies go first.")
     log("")
 
     turns = 0
@@ -71,46 +92,82 @@ def run_battle(player, enemy, rng=None, auto=False, verbose=True):
         turns += 1
         log(f"───── Turn {turns} ─────")
 
-        # ---- Player turn ----
-        if not player_first:
-            # Enemy goes first this round
-            result = _enemy_turn(player, enemy, rng, log)
-            if result == "player_dead":
-                return _lose(player, enemy, turns, log)
-            if result == "enemy_dead":
-                return _win(player, enemy, turns, rng, log)
-
-        result = _player_turn(player, enemy, rng, log, auto=auto)
-        if result == "flee":
-            return _flee(player, enemy, turns, log)
-        if result == "enemy_dead":
-            return _win(player, enemy, turns, rng, log)
-        if result == "player_dead":
-            return _lose(player, enemy, turns, log)
-
-        # ---- Enemy turn ----
         if player_first:
-            result = _enemy_turn(player, enemy, rng, log)
+            # Player acts
+            result = _player_turn(player, enemies, rng, log, auto=auto)
+            if result == "flee":
+                return _flee(player, enemies, turns, log)
             if result == "player_dead":
-                return _lose(player, enemy, turns, log)
-            if result == "enemy_dead":
-                return _win(player, enemy, turns, rng, log)
+                return _lose(player, enemies, turns, log)
+            if _all_dead(enemies):
+                return _win(player, enemies, turns, rng, log)
 
-        # Flip who goes first next round (based on initiative each round, simple version)
-        # Actually: keep the same order. Remove this if you want alternating. For now, keep.
-        # player_first stays the same.
+            # Enemies act
+            result = _enemies_turn(player, enemies, rng, log)
+            if result == "player_dead":
+                return _lose(player, enemies, turns, log)
+            if result == "all_dead" or _all_dead(enemies):
+                return _win(player, enemies, turns, rng, log)
+        else:
+            # Enemies act
+            result = _enemies_turn(player, enemies, rng, log)
+            if result == "player_dead":
+                return _lose(player, enemies, turns, log)
+            if result == "all_dead" or _all_dead(enemies):
+                return _win(player, enemies, turns, rng, log)
 
-    return _draw(player, enemy, turns, log)
+            # Player acts
+            result = _player_turn(player, enemies, rng, log, auto=auto)
+            if result == "flee":
+                return _flee(player, enemies, turns, log)
+            if result == "player_dead":
+                return _lose(player, enemies, turns, log)
+            if _all_dead(enemies):
+                return _win(player, enemies, turns, rng, log)
+
+    return _draw(player, enemies, turns, log)
+
+
+# ============================================================
+# LABELS
+# ============================================================
+
+def _label_enemies(enemies):
+    """Assign readable labels. Duplicates get #1, #2, etc."""
+    counts = {}
+    for e in enemies:
+        counts[e.name] = counts.get(e.name, 0) + 1
+    seen = {}
+    for e in enemies:
+        if counts[e.name] > 1:
+            seen[e.name] = seen.get(e.name, 0) + 1
+            e.label = f"{e.name} #{seen[e.name]}"
+        else:
+            e.label = e.name
+
+# ============================================================
+# HELPERS
+# ============================================================
+
+def _living(enemies):
+    return [e for e in enemies if e.is_alive()]
+
+
+def _all_dead(enemies):
+    return all(not e.is_alive() for e in enemies)
 
 
 # ============================================================
 # PLAYER TURN
 # ============================================================
 
-def _player_turn(player, enemy, rng, log, auto=False):
-    """Returns one of: 'ok', 'flee', 'enemy_dead', 'player_dead', 'item_used'"""
+def _player_turn(player, enemies, rng, log, auto=False):
+    """Returns: 'ok', 'flee', 'player_dead'."""
 
-    if player.has_status("disarmed") or player.has_status("stunned") or player.has_status("petrified"):
+    # ---- Skip turn ----
+    if (player.has_status("disarmed")
+            or player.has_status("stunned")
+            or player.has_status("petrified")):
         skip_name = (
             "disarmed" if player.has_status("disarmed")
             else "stunned" if player.has_status("stunned")
@@ -121,54 +178,65 @@ def _player_turn(player, enemy, rng, log, auto=False):
         _player_end_of_turn(player, log)
         return "ok"
 
+    # ---- Choose action ----
     if auto:
-        spell_key = _auto_pick_spell(player, enemy)
-        if spell_key is None:
-            log(f"  {player.name} has no castable spell — skips.")
+        spell_key = _auto_pick_spell(player, enemies)
+        target = _auto_pick_target(enemies)
+        if spell_key is None or target is None:
+            log(f"  {player.name} hesitates.")
             _player_end_of_turn(player, log)
             return "ok"
     else:
-        action = _prompt_player_action(player, enemy, rng, log)
+        action = _prompt_player_action(player, enemies, rng, log)
 
         if action == "flee":
-            if getattr(enemy, "is_boss", False):
+            if any(getattr(e, "is_boss", False) for e in enemies):
                 log("  You cannot flee from this fight!")
                 _player_end_of_turn(player, log)
                 return "ok"
             return "flee"
-
         if action is None:
             _player_end_of_turn(player, log)
             return "ok"
-
         if action == "item_used":
-            # An item was used inside the prompt — consumes the turn
-            if not enemy.is_alive():
-                _handle_enemy_death(player, enemy, log)
-                log(f"  ★ {enemy.name} is defeated!")
-                return "enemy_dead"
             _player_end_of_turn(player, log)
             if not player.is_alive():
                 return "player_dead"
             return "ok"
 
-        spell_key = action
+        # action is either a spell_key (single) or (spell_key, target) tuple
+        if isinstance(action, tuple):
+            spell_key, target = action
+        else:
+            # Fallback: pick first living enemy
+            spell_key = action
+            living = _living(enemies)
+            target = living[0] if living else None
+            if target is None:
+                _player_end_of_turn(player, log)
+                return "ok"
 
-    # ---- Cast spell ----
-    result = cast_spell(player, spell_key, enemy, rng=rng)
+    # ---- Cast ----
+    spell = SPELLS[spell_key]
+
+    # Support / defense auto-target self
+    if spell["type"] in ("support", "defense"):
+        target = player
+
+    result = cast_spell(player, spell_key, target, rng=rng)
     for line in result["messages"]:
         log("  " + line)
 
-    if not enemy.is_alive():
-        _handle_enemy_death(player, enemy, log)
-        log(f"  ★ {enemy.name} is defeated!")
-        return "enemy_dead"
+    # Check enemy deaths (could be multiple from AoE in future; single-target now)
+    for enemy in enemies:
+        if not enemy.is_alive() and not getattr(enemy, "_death_handled", False):
+            enemy._death_handled = True
+            _handle_enemy_death(player, enemy, log)
 
     _player_end_of_turn(player, log)
 
     if not player.is_alive():
         return "player_dead"
-
     return "ok"
 
 
@@ -188,23 +256,36 @@ def _player_end_of_turn(player, log):
 
 
 # ============================================================
-# ENEMY TURN
+# ENEMIES TURN
 # ============================================================
 
-def _enemy_turn(player, enemy, rng, log):
-    """Returns one of: 'ok', 'enemy_dead', 'player_dead'"""
+def _enemies_turn(player, enemies, rng, log):
+    """Returns: 'ok', 'all_dead', 'player_dead'."""
 
-    if not enemy.is_alive():
-        return "enemy_dead"
+    initial_count = len(enemies)
+    for i in range(initial_count):
+        if i >= len(enemies):
+            break
+        enemy = enemies[i]
+        if not enemy.is_alive():
+            continue
 
-    # ---- Lazy skip (Flobberworm) ----
-    for spec in enemy.specials:
-        if spec.get("name") == "lazy":
-            if rng.random() < spec.get("skip_chance", 0.5):
-                log(f"  {enemy.name} dozes off and skips the turn.")
-                _enemy_end_of_turn(enemy, log)
-                return "ok"
+        _single_enemy_turn(player, enemy, enemies, rng, log)
 
+        # DoT or self-damage may have killed the enemy during its turn
+        if not enemy.is_alive() and not getattr(enemy, "_death_handled", False):
+            enemy._death_handled = True
+            _handle_enemy_death(player, enemy, log)
+
+        if not player.is_alive():
+            return "player_dead"
+        if _all_dead(enemies):
+            return "all_dead"
+
+    return "ok"
+
+
+def _single_enemy_turn(player, enemy, enemies, rng, log):
     # ---- Skip turn ----
     if enemy.should_skip_turn():
         skip_name = next(
@@ -212,37 +293,33 @@ def _enemy_turn(player, enemy, rng, log):
              if s["name"] in ("disarmed", "stunned", "petrified")),
             "stunned",
         )
-        log(f"  {enemy.name} is {skip_name} — loses the turn!")
+        log(f"  {enemy.label} is {skip_name} — loses the turn!")
         enemy.remove_status(skip_name)
         _enemy_end_of_turn(enemy, log)
-        return "ok"
+        return
 
-    # ---- Specials ----
-    action_taken = _try_enemy_special(player, enemy, rng, log)
-    if action_taken:
+    # ---- Lazy skip (Flobberworm) ----
+    for spec in enemy.specials:
+        if spec.get("name") == "lazy":
+            if rng.random() < spec.get("skip_chance", 0.5):
+                log(f"  {enemy.label} dozes off and skips the turn.")
+                _enemy_end_of_turn(enemy, log)
+                return
+
+    # ---- Specials (may summon) ----
+    if _try_enemy_special(player, enemy, enemies, rng, log):
         _enemy_end_of_turn(enemy, log)
-        if not player.is_alive():
-            return "player_dead"
-        return "ok"
+        return
 
-    # ---- Pick attack ----
+    # ---- Normal attack ----
     attack = enemy.choose_attack()
     if attack is None:
-        log(f"  {enemy.name} hesitates...")
+        log(f"  {enemy.label} hesitates...")
         _enemy_end_of_turn(enemy, log)
-        return "ok"
+        return
 
-    # ---- Resolve ----
     _resolve_enemy_attack(player, enemy, attack, rng, log)
-
     _enemy_end_of_turn(enemy, log)
-
-    if not player.is_alive():
-        return "player_dead"
-    if not enemy.is_alive():
-        return "enemy_dead"
-
-    return "ok"
 
 
 def _enemy_end_of_turn(enemy, log):
@@ -253,9 +330,9 @@ def _enemy_end_of_turn(enemy, log):
     if dot > 0:
         notes.append(f"-{dot} HP (status)")
     if notes:
-        log(f"  [{enemy.name} end of turn] {', '.join(notes)}")
+        log(f"  [{enemy.label} end of turn] {', '.join(notes)}")
     if not enemy.is_alive():
-        log(f"  ★ {enemy.name} succumbs to their wounds!")
+        log(f"  ★ {enemy.label} succumbs to their wounds!")
 
 
 # ============================================================
@@ -265,29 +342,28 @@ def _enemy_end_of_turn(enemy, log):
 def _resolve_enemy_attack(player, enemy, attack, rng, log):
     attack_name = attack.get("name", "?")
 
-    # Track uses
     enemy.mark_attack_used(attack_name)
 
-    # --- Self-heal attack (Hufflepuff Rival's Episkey) ---
+    # ---- Self-heal ----
     if attack.get("vs") == "self":
         mana_cost = attack.get("mana_cost", 0)
         if mana_cost and not enemy.spend_mana(mana_cost):
-            log(f"  {enemy.name} lacks mana for {attack_name} — skips.")
+            log(f"  {enemy.label} lacks mana for {attack_name} — skips.")
             return
         before = enemy.current_hp
         enemy.heal(attack.get("heal", 0))
         gained = enemy.current_hp - before
-        log(f"  {enemy.name} casts {attack_name} and heals {gained} HP.")
+        log(f"  {enemy.label} casts {attack_name} and heals {gained} HP.")
         return
 
-    # --- Spend mana ---
+    # ---- Mana cost ----
     mana_cost = attack.get("mana_cost", 0)
     if mana_cost:
         if not enemy.spend_mana(mana_cost):
-            log(f"  {enemy.name} lacks mana for {attack_name} — skips.")
+            log(f"  {enemy.label} lacks mana for {attack_name} — skips.")
             return
 
-    # --- Attack roll ---
+    # ---- Roll ----
     nat = rng.randint(1, 20)
     penalty = enemy.get_attack_penalty()
     bonus = attack.get("to_hit_bonus", 0) + penalty
@@ -297,14 +373,14 @@ def _resolve_enemy_attack(player, enemy, attack, rng, log):
     attack_total = nat + bonus
 
     if nat == 1:
-        log(f"  {enemy.name} attacks with {attack_name} — NATURAL 1! Misses badly.")
+        log(f"  {enemy.label} attacks with {attack_name} — NATURAL 1! Misses badly.")
         return
     if nat != 20 and attack_total < defense:
-        log(f"  {enemy.name} attacks with {attack_name} — "
+        log(f"  {enemy.label} attacks with {attack_name} — "
             f"d20({nat}) + {bonus} = {attack_total} vs {defense} → MISS")
         return
 
-    # --- Save-or-suck (Basilisk gaze, Mandrake scream) ---
+    # ---- Save-or-suck ----
     save = attack.get("save")
     if save:
         dc = save["dc"]
@@ -312,14 +388,14 @@ def _resolve_enemy_attack(player, enemy, attack, rng, log):
         attr_val = player.get_effective_attr(attr)
         save_roll = rng.randint(1, 20) + attr_val
         if save_roll >= dc:
-            log(f"  {enemy.name} uses {attack_name} — "
+            log(f"  {enemy.label} uses {attack_name} — "
                 f"{player.name} saves! (d20 + {attr_val} = {save_roll} vs {dc})")
             return
         else:
-            log(f"  {enemy.name} uses {attack_name} — "
+            log(f"  {enemy.label} uses {attack_name} — "
                 f"{player.name} fails to save! (d20 + {attr_val} = {save_roll} vs {dc})")
 
-    # --- Damage ---
+    # ---- Damage ----
     damage = attack.get("damage", 0)
     damage += enemy.threshold_damage_bonus()
 
@@ -335,29 +411,29 @@ def _resolve_enemy_attack(player, enemy, attack, rng, log):
 
     crit_tag = "  ★ CRIT!" if crit else ""
     if final_damage > 0:
-        log(f"  {enemy.name} hits with {attack_name} — "
+        log(f"  {enemy.label} hits with {attack_name} — "
             f"d20({nat}) + {bonus} = {attack_total} vs {defense} → "
             f"{final_damage} damage{crit_tag}")
     else:
-        log(f"  {enemy.name} uses {attack_name}.")
+        log(f"  {enemy.label} uses {attack_name}.")
 
-    # --- Steal gold (Niffler) ---
+    # ---- Steal gold ----
     if "steal_gold" in attack:
         amount = min(attack["steal_gold"], player.galleons)
         if amount > 0:
             player.galleons -= amount
-            log(f"  → {enemy.name} snatches {amount} Galleons!")
+            log(f"  → {enemy.label} snatches {amount} Galleons!")
         else:
-            log(f"  → {enemy.name} finds nothing to steal.")
+            log(f"  → {enemy.label} finds nothing to steal.")
 
-    # --- Mana drain (Chizpurfle) ---
+    # ---- Mana drain ----
     if "mana_drain" in attack:
         amount = min(attack["mana_drain"], player.current_mana)
         if amount > 0:
             player.current_mana -= amount
-            log(f"  → {enemy.name} drains {amount} mana!")
+            log(f"  → {enemy.label} drains {amount} mana!")
 
-    # --- Apply effect ---
+    # ---- Effect ----
     effect = attack.get("effect")
     if effect:
         name = effect.get("name")
@@ -372,22 +448,22 @@ def _resolve_enemy_attack(player, enemy, attack, rng, log):
             player.add_status(name, data=data, duration=duration)
             log(f"  → {player.name} is {name}!")
 
-    # --- Execute (Avada Kedavra) ---
+    # ---- Execute ----
     execute_threshold = attack.get("execute_threshold")
     if execute_threshold and player.current_hp > 0:
         if player.current_hp / player.max_hp() < execute_threshold:
             player.current_hp = 0
-            log(f"  ★ {enemy.name}'s {attack_name} EXECUTES {player.name}!")
+            log(f"  ★ {enemy.label}'s {attack_name} EXECUTES {player.name}!")
 
 
 # ============================================================
-# ENEMY SPECIALS
+# ENEMY SPECIALS + SUMMONS
 # ============================================================
 
-def _try_enemy_special(player, enemy, rng, log):
-    """Returns True if a special was used (skipping the normal attack)."""
+def _try_enemy_special(player, enemy, enemies, rng, log):
+    """Returns True if a special consumed the enemy's turn."""
 
-    # ---- Hinkypunk: Lure ----
+    # ---- Lure (Hinkypunk) ----
     if enemy.special_available("lure"):
         spec = next(s for s in enemy.specials if s["name"] == "lure")
         enemy.mark_special_used("lure")
@@ -395,22 +471,22 @@ def _try_enemy_special(player, enemy, rng, log):
         will = player.get_effective_attr("willpower")
         save = rng.randint(1, 20) + will
         if save >= dc:
-            log(f"  {enemy.name} tries to lure {player.name} — "
+            log(f"  {enemy.label} tries to lure {player.name} — "
                 f"saved! (d20 + {will} = {save} vs {dc})")
         else:
             player.add_status("stunned", duration=1)
-            log(f"  {enemy.name} LURES {player.name}! "
+            log(f"  {enemy.label} LURES {player.name}! "
                 f"d20 + {will} = {save} vs {dc} → stunned!")
         return True
 
-    # ---- Acromantula: Web Shot ----
+    # ---- Web Shot (Acromantula) ----
     if enemy.special_available("web_shot"):
         spec = next(s for s in enemy.specials if s["name"] == "web_shot")
         enemy.mark_special_used("web_shot")
         penalty = spec.get("agility_penalty", -2)
         dur = spec.get("duration", 2)
         player.add_status("weakened", data={"amount": penalty}, duration=dur)
-        log(f"  {enemy.name} shoots webbing! {player.name} is slowed ({penalty} Agility for {dur}).")
+        log(f"  {enemy.label} shoots webbing! {player.name} is slowed ({penalty} for {dur}).")
         return True
 
     # ---- Steadfast (Hufflepuff Rival) ----
@@ -419,7 +495,7 @@ def _try_enemy_special(player, enemy, rng, log):
         enemy.mark_special_used("steadfast")
         heal = spec.get("heal", 0)
         enemy.heal(heal)
-        log(f"  ★ {enemy.name} rallies! (+{heal} HP)")
+        log(f"  ★ {enemy.label} rallies! (+{heal} HP)")
         return True
 
     # ---- Dark Lord's Will (Voldemort) ----
@@ -428,32 +504,36 @@ def _try_enemy_special(player, enemy, rng, log):
         enemy.mark_special_used("dark_lords_will")
         heal = spec.get("heal", 0)
         enemy.heal(heal)
-        log(f"  ★ {enemy.name} draws on dark power! (+{heal} HP)")
+        log(f"  ★ {enemy.label} draws on dark power! (+{heal} HP)")
         return True
 
-    # ---- Brood Mother (Aragog) — placeholder until multi-enemy combat ----
+    # ---- Dark Mark (Death Eater) ----
+    if enemy.special_available("dark_mark") and enemy.hp_pct() < 0.5:
+        spec = next(s for s in enemy.specials if s["name"] == "dark_mark")
+        enemy.mark_special_used("dark_mark")
+        summon_key = spec.get("summon")
+        hp_pct = spec.get("summon_hp_pct", 1.0)
+        new_enemy = _summon_enemy(enemies, summon_key, hp_pct, log)
+        if new_enemy:
+            log(f"  ★ {enemy.label} summons {new_enemy.label} with the Dark Mark!")
+        return True
+
+    # ---- Brood Mother (Aragog) ----
     for spec in enemy.specials:
         if spec.get("name") != "brood_mother":
             continue
         for thresh in spec.get("thresholds", []):
-            key = f"brood_mother_{thresh}"
+            key = f"brood_mother_{int(thresh * 100)}"
             if enemy.hp_pct() < thresh and key not in enemy.used_specials:
                 enemy.mark_special_used(key)
-                log(f"  ★ {enemy.name} spawns a Hatchling! (full summon coming later)")
+                summon_key = spec.get("summon")
+                hp_pct = spec.get("summon_hp_pct", 1.0)
+                new_enemy = _summon_enemy(enemies, summon_key, hp_pct, log)
+                if new_enemy:
+                    log(f"  ★ {enemy.label} spawns {new_enemy.label}!")
                 return True
 
-    # ---- Death Eater: Dark Mark ----
-    if enemy.special_available("dark_mark") and enemy.hp_pct() < 0.5:
-        spec = next(s for s in enemy.specials if s["name"] == "dark_mark")
-        enemy.mark_special_used("dark_mark")
-        log(f"  ★ {enemy.name} summons an ally with the Dark Mark!")
-        # NOTE: summoning not fully implemented yet.
-        # For now: heal enemy to 50% as a stand-in. Real summon comes later.
-        enemy.heal(int(enemy.max_hp * 0.25))
-        log(f"  (Summon placeholder: {enemy.name} recovers some HP)")
-        return True
-
-    # ---- Dementor: Fear Aura (passive, every turn) ----
+    # ---- Fear Aura (Dementor) — passive, doesn't consume turn ----
     if any(s.get("name") == "fear_aura" for s in enemy.specials):
         spec = next(s for s in enemy.specials if s["name"] == "fear_aura")
         dc = spec["dc"]
@@ -461,87 +541,190 @@ def _try_enemy_special(player, enemy, rng, log):
         save = rng.randint(1, 20) + will
         if save < dc:
             player.current_mana = max(0, player.current_mana - spec["mana_drain"])
-            player.add_status("weakened", data={"amount": spec["penalty"]}, duration=1)
-            log(f"  {enemy.name}'s Fear Aura grips {player.name}! "
+            player.add_status("weakened",
+                              data={"amount": spec["penalty"]}, duration=1)
+            log(f"  {enemy.label}'s Fear Aura grips {player.name}! "
                 f"(-{spec['mana_drain']} mana, {spec['penalty']} to rolls)")
         else:
-            log(f"  {enemy.name}'s Fear Aura washes over {player.name} — resisted.")
-        # Fear aura does not skip the attack; return False
+            log(f"  {enemy.label}'s Fear Aura washes over {player.name} — resisted.")
         return False
 
     return False
+
+
+def _summon_enemy(enemies, summon_key, hp_pct, log):
+    def _summon_enemy(enemies, summon_key, hp_pct, log):
+        """Create an Enemy, label it, and append it. Returns the new Enemy or None."""
+    if summon_key not in ENEMIES:
+        log(f"  (Unknown summon: {summon_key})")
+        return None
+
+    new_enemy = Enemy(summon_key)
+    if hp_pct < 1.0:
+        new_enemy.current_hp = max(1, int(new_enemy.max_hp * hp_pct))
+
+    # ---- Assign a stable label ----
+    same_name = [e for e in enemies if e.name == new_enemy.name]
+
+    if not same_name:
+        new_enemy.label = new_enemy.name
+    else:
+        # Renumber existing un-numbered duplicates
+        n = 0
+        for e in same_name:
+            label = getattr(e, "label", e.name)
+            if " #" not in label:
+                n += 1
+                e.label = f"{e.name} #{n}"
+            else:
+                try:
+                    existing_n = int(label.rsplit(" #", 1)[1])
+                    n = max(n, existing_n)
+                except (ValueError, IndexError):
+                    pass
+        n += 1
+        new_enemy.label = f"{new_enemy.name} #{n}"
+
+    enemies.append(new_enemy)
+    return new_enemy
+
+
+# ============================================================
+# PLAYER TARGETING
+# ============================================================
+
+def _auto_pick_target(enemies):
+    """Pick the lowest-HP living enemy."""
+    living = _living(enemies)
+    if not living:
+        return None
+    return min(living, key=lambda e: e.current_hp)
+
+
+def _prompt_target_selection(enemies, log):
+    """Prompt for an enemy target. Returns Enemy or None (back out)."""
+    living = _living(enemies)
+    if not living:
+        return None
+    if len(living) == 1:
+        return living[0]
+
+    log("")
+    log("  Which enemy?")
+    for i, e in enumerate(living, start=1):
+        log(f"    {i}. {e.label:<28} HP {e.current_hp}/{e.max_hp}")
+    log("    0. Back")
+
+    try:
+        choice = input("  > ").strip()
+    except (EOFError, KeyboardInterrupt):
+        return None
+
+    if choice == "0" or not choice.isdigit():
+        return None
+    n = int(choice) - 1
+    if 0 <= n < len(living):
+        return living[n]
+    return None
+
+
+# ============================================================
+# ENEMY DEATH HANDLING
+# ============================================================
+
+def _handle_enemy_death(player, enemy, log):
+    """On-death specials (Erumpent explosion)."""
+    for spec in getattr(enemy, "specials", []):
+        if spec.get("name") == "explosive_death":
+            dmg = spec.get("damage", 0)
+            if dmg > 0:
+                player.take_damage(dmg)
+                log(f"  ★ {enemy.label} explodes! {player.name} takes {dmg} damage.")
 
 
 # ============================================================
 # OUTCOMES
 # ============================================================
 
-def _handle_enemy_death(player, enemy, log):
-    """Trigger on-death specials (Erumpent explosion)."""
-    for spec in getattr(enemy, "specials", []):
-        if spec.get("name") == "explosive_death":
-            dmg = spec.get("damage", 0)
-            if dmg > 0:
-                player.take_damage(dmg)
-                log(f"  ★ {enemy.name} explodes! {player.name} takes {dmg} damage.")
+def _win(player, enemies, turns, rng, log):
+    # Aggregate rewards from every enemy in the fight
+    total_xp = 0
+    total_gold = 0
+    total_tokens = 0
+    total_rare_tokens = 0
+    has_new_species = False
+    total_streak_mult = player.streak_multiplier()
 
-def _win(player, enemy, turns, rng, log):
-    rewards = enemy.roll_rewards(rng)
-
-    # ---- Win streak multiplier ----
-    mult = player.streak_multiplier()
-    xp_gain = int(rewards["xp"] * mult)
-    gold_gain = int(rewards["galleons"] * mult)
+    # Any enemy with `no_streak` doesn't count toward bond/streak
+    any_real_enemy = any(not e.no_streak for e in enemies)
 
     log("")
     log(f"═══ VICTORY ═══")
-    log(f"  {enemy.name} defeated in {turns} turns.")
+    if len(enemies) == 1:
+        log(f"  {enemies[0].label} defeated in {turns} turns.")
+    else:
+        log(f"  All {len(enemies)} enemies defeated in {turns} turns.")
 
-    if mult > 1.0 and not enemy.no_streak:
-        log(f"  Win streak bonus: ×{mult:.2f}")
+    for e in enemies:
+        rewards = e.roll_rewards(rng)
+        total_xp += rewards["xp"]
+        total_gold += rewards["galleons"]
+        total_tokens += rewards["tokens"]
+        total_rare_tokens += rewards["rare_tokens"]
 
-    # ---- Apply rewards ----
+        # Species discovery (Hufflepuff)
+        if player.discover_enemy(e.key):
+            has_new_species = True
+
+    # Apply streak multiplier (once on aggregate)
+    xp_gain = int(total_xp * total_streak_mult)
+    gold_gain = int(total_gold * total_streak_mult)
+
+    if total_streak_mult > 1.0 and any_real_enemy:
+        log(f"  Win streak bonus: ×{total_streak_mult:.2f}")
+
     player.gain_xp(xp_gain)
     player.add_galleons(gold_gain)
-    player.add_spell_tokens(rewards["tokens"] + rewards["rare_tokens"])
+    player.add_spell_tokens(total_tokens + total_rare_tokens)
 
-    # Training Dummy and similar "practice" enemies don't count toward bond
-    if enemy.no_streak:
-        bond_up = False
-    else:
+    bond_up = False
+    if any_real_enemy:
         bond_up = player.record_battle_won()
 
     log(f"  +{xp_gain} XP")
     log(f"  +{gold_gain} Galleons")
-    if rewards["tokens"]:
-        log(f"  +{rewards['tokens']} Spell Token(s)")
-    if rewards["rare_tokens"]:
-        log(f"  +{rewards['rare_tokens']} RARE Token(s)")
+    if total_tokens:
+        log(f"  +{total_tokens} Spell Token(s)")
+    if total_rare_tokens:
+        log(f"  +{total_rare_tokens} RARE Token(s)")
     if bond_up:
         log(f"  ★ WAND BOND UP! Now Bond {player.bond_level()} ({player.bond_name()})")
 
-    # ---- Hufflepuff: new species discovery ----
-    is_new_species = player.discover_enemy(enemy.key)
-    if is_new_species and player.house == "hufflepuff":
+    if has_new_species and player.house == "hufflepuff":
         hp_bonus = HOUSES["hufflepuff"]["passive_data"]["hp_per_species"]
         log(f"  ★ Hufflepuff: new species discovered! +{hp_bonus} max HP.")
         player.heal(hp_bonus)
 
-    # ---- Record streak (skip for Training Dummy and similar) ----
+    # Ravenclaw streak
     bonus_tokens = 0
-    if not enemy.no_streak:
+    if any_real_enemy:
         bonus_tokens, msg = player.record_win()
         if msg:
             log(f"  ★ {msg}")
 
-    # ---- Log the battle ----
+    # Battle log — record once for the fight
+    if len(enemies) == 1:
+        label = enemies[0].name
+    else:
+        label = f"{len(enemies)} enemies"
+
     player.record_battle(
-        enemy_name=enemy.name,
+        enemy_name=label,
         result="win",
         turns=turns,
         xp=xp_gain,
         gold=gold_gain,
-        tokens=rewards["tokens"] + rewards["rare_tokens"] + bonus_tokens,
+        tokens=total_tokens + total_rare_tokens + bonus_tokens,
     )
 
     return {
@@ -550,21 +733,21 @@ def _win(player, enemy, turns, rng, log):
         "rewards": {
             "xp": xp_gain,
             "galleons": gold_gain,
-            "tokens": rewards["tokens"],
-            "rare_tokens": rewards["rare_tokens"],
+            "tokens": total_tokens,
+            "rare_tokens": total_rare_tokens,
         },
         "bond_up": bond_up,
     }
 
 
-def _lose(player, enemy, turns, log):
+def _lose(player, enemies, turns, log):
     log("")
     log(f"═══ DEFEAT ═══")
     log(f"  {player.name} falls after {turns} turns.")
 
-    is_boss = getattr(enemy, "is_boss", False)
+    is_boss = any(getattr(e, "is_boss", False) for e in enemies)
+
     if is_boss:
-        # Harsher penalty for boss fights
         lost = int(player.galleons * 0.50)
         player.galleons -= lost
         player.reset_streak()
@@ -577,8 +760,13 @@ def _lose(player, enemy, turns, log):
         player.reset_streak()
         log(f"  Lose {lost} Galleons and your win streak. Wake up in the hospital wing.")
 
+    if len(enemies) == 1:
+        label = enemies[0].name
+    else:
+        label = f"{len(enemies)} enemies"
+
     player.record_battle(
-        enemy_name=enemy.name,
+        enemy_name=label,
         result="lose",
         turns=turns,
     )
@@ -590,12 +778,17 @@ def _lose(player, enemy, turns, log):
     }
 
 
-def _flee(player, enemy, turns, log):
+def _flee(player, enemies, turns, log):
     log(f"  {player.name} flees the battle. Win streak reset.")
     player.reset_streak()
 
+    if len(enemies) == 1:
+        label = enemies[0].name
+    else:
+        label = f"{len(enemies)} enemies"
+
     player.record_battle(
-        enemy_name=enemy.name,
+        enemy_name=label,
         result="flee",
         turns=turns,
     )
@@ -607,11 +800,16 @@ def _flee(player, enemy, turns, log):
     }
 
 
-def _draw(player, enemy, turns, log):
+def _draw(player, enemies, turns, log):
     log(f"  Battle drags on — both sides retreat. (Draw after {turns} turns)")
 
+    if len(enemies) == 1:
+        label = enemies[0].name
+    else:
+        label = f"{len(enemies)} enemies"
+
     player.record_battle(
-        enemy_name=enemy.name,
+        enemy_name=label,
         result="draw",
         turns=turns,
     )
@@ -624,46 +822,26 @@ def _draw(player, enemy, turns, log):
 
 
 # ============================================================
-# AI HELPERS
+# PLAYER ACTION PROMPT
 # ============================================================
 
-def _auto_pick_spell(player, enemy):
-    """For auto-mode testing: pick the strongest affordable known spell."""
-    best = None
-    best_score = -1
-    for key in player.known_spells:
-        cost = player.get_spell_mana_cost(key)
-        if player.current_mana < cost:
-            continue
-        spell = SPELLS[key]
-        # Simple preference: Episkey when hurt, else highest base damage
-        if key == "episkey" and player.current_hp < player.max_hp() * 0.4:
-            return "episkey"
-        score = spell["base"]
-        if score > best_score:
-            best_score = score
-            best = key
-    if best is None and "flipendo" in player.known_spells:
-        return "flipendo"
-    return best
-
-
-# ============================================================
-# INTERACTIVE INPUT (used when auto=False)
-# ============================================================
-
-def _prompt_player_action(player, enemy, rng, log):
+def _prompt_player_action(player, enemies, rng, log):
     """
     Show menu, read input.
-    Returns: spell_key (str) | "flee" | "item_used" | None
+    Returns: spell_key | (spell_key, target) | "flee" | "item_used" | None
     """
+    living = _living(enemies)
+
     while True:
         log("")
         log(f"  {player.name}: HP {player.current_hp}/{player.max_hp()}  "
             f"Mana {player.current_mana}/{player.max_mana()}")
-        log(f"  {enemy.name}: HP {enemy.current_hp}/{enemy.max_hp}")
-        if enemy.statuses:
-            log(f"  {enemy.status_line()}")
+        log("  Enemies:")
+        for i, e in enumerate(living, start=1):
+            statuses = ""
+            if e.statuses:
+                statuses = "  [" + ",".join(s["name"] for s in e.statuses) + "]"
+            log(f"    {i}. {e.label:<28} HP {e.current_hp}/{e.max_hp}{statuses}")
         log("")
         log("  Choose an action:")
 
@@ -693,10 +871,9 @@ def _prompt_player_action(player, enemy, rng, log):
             continue
 
         if choice == "i":
-            result = _item_menu(player, enemy, rng, log)
+            result = _item_menu(player, enemies, rng, log)
             if result == "item_used":
                 return "item_used"
-            # otherwise, loop back
             continue
 
         if choice in ("f", "flee"):
@@ -708,7 +885,23 @@ def _prompt_player_action(player, enemy, rng, log):
         if choice.isdigit():
             idx = int(choice) - 1
             if 0 <= idx < len(options):
-                return options[idx]
+                spell_key = options[idx]
+                spell = SPELLS[spell_key]
+
+                # Self-target spells skip target selection
+                if spell["type"] in ("support", "defense"):
+                    return spell_key
+
+                # Offensive — prompt for target
+                target = _prompt_target_selection(enemies, log)
+                if target is None:
+                    continue  # back to menu
+                return (spell_key, target)
+
+
+# ============================================================
+# HELPERS FOR MENUS
+# ============================================================
 
 def _total_consumables(player):
     p = sum(player.inventory.get("potions", {}).values())
@@ -716,11 +909,8 @@ def _total_consumables(player):
     return p + i
 
 
-def _item_menu(player, enemy, rng, log):
-    """
-    Show potions + combat items. If player picks one, use it and return "item_used".
-    Otherwise return None (loop back to main menu).
-    """
+def _item_menu(player, enemies, rng, log):
+    """Show items. Returns 'item_used' or None."""
     from Items import use_potion, use_combat_item
     from Data import POTIONS, COMBAT_ITEMS
 
@@ -734,7 +924,7 @@ def _item_menu(player, enemy, rng, log):
 
     log("")
     log("  ═══ USE AN ITEM ═══")
-    entries = []  # (category, key, label)
+    entries = []
 
     if potions:
         log("  Potions:")
@@ -771,26 +961,27 @@ def _item_menu(player, enemy, rng, log):
     if category == "potions":
         ok, msgs = use_potion(player, key)
     else:
-        ok, msgs = use_combat_item(player, key, enemy, rng)
+        # Combat items need a target
+        target = _prompt_target_selection(enemies, log)
+        if target is None:
+            return None
+        ok, msgs = use_combat_item(player, key, target, rng)
 
     for m in msgs:
         log("  " + m)
 
     if not ok:
         return None
-
-    # Turn consumed
     return "item_used"
 
+
 def _show_spell_help(player, log):
-    """Display details for each known spell."""
     log("")
     log("  ═══ SPELL DETAILS ═══")
     for key in player.known_spells:
         spell = SPELLS[key]
         cost = player.get_spell_mana_cost(key)
 
-        # Compute current damage / heal preview
         scaling = 0
         for attr in spell.get("scaling", []):
             scaling += player.get_effective_attr(attr)
@@ -810,7 +1001,6 @@ def _show_spell_help(player, log):
         log(f"    {spell['description']}")
         log(f"    Effect:  {preview}")
 
-        # Additional effect
         effect = spell.get("effect")
         if effect:
             name = effect.get("name")
@@ -826,6 +1016,33 @@ def _show_spell_help(player, log):
     log("")
     log("  ═════════════════════")
     input("  Press Enter to return to menu. ")
+
+
+# ============================================================
+# AUTO-MODE HELPERS
+# ============================================================
+
+def _auto_pick_spell(player, enemies):
+    """For auto-mode testing. Picks strongest affordable spell.
+    `enemies` is unused for now but kept for future smart targeting."""
+    best = None
+    best_score = -1
+    for key in player.known_spells:
+        cost = player.get_spell_mana_cost(key)
+        if player.current_mana < cost:
+            continue
+        spell = SPELLS[key]
+        if key == "episkey" and player.current_hp < player.max_hp() * 0.4:
+            return "episkey"
+        score = spell["base"]
+        if score > best_score:
+            best_score = score
+            best = key
+    if best is None and "flipendo" in player.known_spells:
+        return "flipendo"
+    return best
+
+
 # ============================================================
 # LOGGER
 # ============================================================
@@ -840,40 +1057,3 @@ def _make_logger(verbose):
             pass
         return log
 
-
-# ============================================================
-# SELF-TEST
-# ============================================================
-
-if __name__ == "__main__":
-    import random
-    from Player import Player
-    from Enemy import Enemy
-
-    print("=== AUTO BATTLE: Harry vs Slytherin Rival ===\n")
-    p = Player(name="Harry", wand_wood="holly", wand_core="phoenix_feather")
-    p.spell_tokens = 20
-    p.learn_spell("expelliarmus")
-    p.learn_spell("episkey")
-    p.learn_spell("protego")
-    p.learn_spell("incendio")
-
-    e = Enemy("slytherin_rival")
-
-    rng = random.Random(42)
-    result = run_battle(p, e, rng=rng, auto=True, verbose=True)
-    print(f"\nResult: {result['result']} in {result['turns']} turns.")
-
-    print()
-    print("=== AUTO BATTLE: Harry vs Mountain Troll (should lose at Lv1) ===\n")
-    p2 = Player(name="Harry", wand_wood="holly", wand_core="phoenix_feather")
-    p2.spell_tokens = 20
-    p2.learn_spell("expelliarmus")
-    p2.learn_spell("episkey")
-    p2.learn_spell("protego")
-    p2.learn_spell("incendio")
-
-    e2 = Enemy("mountain_troll")
-    rng2 = random.Random(7)
-    result2 = run_battle(p2, e2, rng=rng2, auto=True, verbose=True)
-    print(f"\nResult: {result2['result']} in {result2['turns']} turns.")
