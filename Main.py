@@ -1,19 +1,30 @@
 """
-main.py — Harry Potter Wizard RPG entry point.
+Main.py — entry point for Hogwarts: A Wizard's Journey.
 
-Run:
-    python main.py
+Wires everything together:
 
-Adjust imports at the top if your filenames differ in capitalization.
+- Title screen and New Game / Load Game / Quit
+- Character creation (name, Sorting Hat with reroll, wand pick)
+- Main hub menu (fight, shops, inventory, wand & gear, rest, help, log, save)
+- Battle flow (pick tier → encounter → run_battle)
+- Level-up prompts (spend attribute points, unlock Bond Foci)
+- Boss gauntlet (Level 11 trigger for Year 1 → Year 2)
+- Year completion screen
+- Save/load (JSON with version + .bak backup fallback)
+- Help system (show_help)
+
+The hub loop calls into combat, items, and shop modules.
+All game state lives in the Player and Enemy classes.
 """
 
 import json
+import os
 import random
 from pathlib import Path
 
 from Data import (
     ENEMIES, ENEMIES_BY_TIER,
-    POTIONS, GEAR, GEAR_SLOTS,
+    POTIONS, GEAR, GEAR_SLOTS, SPELLS,
     ATTRIBUTES, ATTR_DISPLAY,
     YEAR_LEVEL_RANGE, ATTRIBUTE_CAP_BY_YEAR, SPELL_CAP_BY_YEAR,
     HOUSES, HOUSE_KEYS,
@@ -36,6 +47,8 @@ from Shop import menu_spell_shop, menu_apothecary, menu_wand_shop
 # ============================================================
 
 SAVE_FILE = "savegame.json"
+SAVE_VERSION = 1
+SAVE_BACKUP = "savegame.json.bak"
 
 TIER_MIN_LEVEL = {
     "very_weak":   1,
@@ -67,6 +80,9 @@ def prompt(text="  > "):
         print()
         return ""
 
+def clear_screen():
+    """Clear the terminal. Used between menus (not during combat)."""
+    os.system("cls" if os.name == "nt" else "clear")
 
 def pause(text="  Press Enter to continue..."):
     try:
@@ -80,6 +96,7 @@ def pause(text="  Press Enter to continue..."):
 # ============================================================
 def show_help():
     """Beginner-friendly explanation of game mechanics."""
+    clear_screen()
     sections = [
         ("HOW TO PLAY", [
             "Fight enemies to earn XP, Galleons, and Spell Tokens.",
@@ -198,6 +215,7 @@ def show_help():
 
 def show_recent_actions(player):
     """Show the last 5 battles."""
+    clear_screen()
     print()
     print("═" * 60)
     print("  RECENT BATTLES")
@@ -506,7 +524,9 @@ def choose_from(keys, label):
 # ============================================================
 
 def save_game(player, path=SAVE_FILE):
+    """Save the player to disk. Creates a .bak backup of the previous save."""
     data = {
+        "version":        SAVE_VERSION,
         "name":           player.name,
         "level":          player.level,
         "xp":             player.xp,
@@ -525,29 +545,57 @@ def save_game(player, path=SAVE_FILE):
         "win_streak":     player.win_streak,
         "discovered_enemies": player.discovered_enemies,
         "battle_log":     player.battle_log,
-        "year":             player.year,
-        "bosses_defeated":  player.bosses_defeated,
-        "year_bonuses":     player.year_bonuses,
+        "year":           player.year,
+        "bosses_defeated": player.bosses_defeated,
+        "year_bonuses":   player.year_bonuses,
         "pending_focus_unlock": player.pending_focus_unlock,
     }
-    Path(path).write_text(json.dumps(data, indent=2))
+
+    save_path = Path(path)
+
+    # Backup the previous save before overwriting
+    if save_path.exists():
+        try:
+            backup = Path(SAVE_BACKUP)
+            backup.write_text(save_path.read_text())
+        except OSError:
+            # Backup is best-effort. Continue even if it fails.
+            pass
+
+    save_path.write_text(json.dumps(data, indent=2))
 
 
-def try_load(path=SAVE_FILE):
-    if not Path(path).exists():
-        print("\n  No save file found.")
-        return None
+def _read_save_file(path):
+    """Read a save file and return parsed dict, or None on failure."""
     try:
-        data = json.loads(Path(path).read_text())
-    except Exception as e:
-        print(f"\n  Failed to load save: {e}")
+        raw = Path(path).read_text()
+        return json.loads(raw)
+    except (OSError, json.JSONDecodeError):
         return None
+
+
+def _apply_save_data(data, source_path):
+    """Build a Player from a save data dict. Returns Player or None."""
+    version = data.get("version", 0)
+
+    if version > SAVE_VERSION:
+        print(f"\n  This save was made with a newer version of the game.")
+        print(f"  Save version: {version}  |  Game version: {SAVE_VERSION}")
+        print(f"  Please update the game to load this save.")
+        return None
+
+    if version < SAVE_VERSION:
+        print(f"\n  ⚠ Loading an older save (v{version}). Some data may reset.")
+        # No migration logic yet — just load what's there with defaults.
 
     p = Player(
         name=data.get("name", "Student"),
         wand_wood=data.get("wand", {}).get("wood", "holly"),
         wand_core=data.get("wand", {}).get("core", "phoenix_feather"),
+        wand_focus=data.get("wand", {}).get("focus", "warrior"),
     )
+
+    # ---- Restore fields ----
     p.level         = data.get("level", 1)
     p.xp            = data.get("xp", 0)
     p.attr_points   = data.get("attr_points", 0)
@@ -561,17 +609,44 @@ def try_load(path=SAVE_FILE):
     p.equipped      = data.get("equipped", {slot: None for slot in GEAR_SLOTS})
     p.current_hp    = data.get("current_hp", p.max_hp())
     p.current_mana  = data.get("current_mana", p.max_mana())
+
     p.house              = data.get("house")
     p.win_streak         = data.get("win_streak", 0)
     p.discovered_enemies = data.get("discovered_enemies", [])
-    p.battle_log = data.get("battle_log", [])
-    p.year             = data.get("year", 1)
-    p.bosses_defeated  = data.get("bosses_defeated", [])
-    p.year_bonuses     = data.get("year_bonuses", {})
+    p.battle_log         = data.get("battle_log", [])
+    p.year               = data.get("year", 1)
+    p.bosses_defeated    = data.get("bosses_defeated", [])
+    p.year_bonuses       = data.get("year_bonuses", {})
     p.pending_focus_unlock = data.get("pending_focus_unlock", False)
 
-    print(f"\n  Loaded {p.name} (Level {p.level}).")
+    print(f"\n  Loaded {p.name} (Year {p.year}, Level {p.level}).")
     return p
+
+
+def try_load(path=SAVE_FILE):
+    """Attempt to load the save. Falls back to .bak if the main file is corrupt."""
+    if not Path(path).exists():
+        print("\n  No save file found.")
+        return None
+
+    # Try the main save first
+    data = _read_save_file(path)
+    if data is not None:
+        return _apply_save_data(data, path)
+
+    # Main save is corrupt — try the backup
+    print("\n  ⚠ Main save file is corrupt. Trying backup...")
+    if not Path(SAVE_BACKUP).exists():
+        print("  No backup found either. Starting fresh.")
+        return None
+
+    backup_data = _read_save_file(SAVE_BACKUP)
+    if backup_data is None:
+        print("  Backup is also corrupt. Starting fresh.")
+        return None
+
+    print("  ✓ Backup loaded successfully.")
+    return _apply_save_data(backup_data, SAVE_BACKUP)
 
 
 # ============================================================
@@ -580,67 +655,164 @@ def try_load(path=SAVE_FILE):
 
 def main_hub(player):
     while True:
+        clear_screen()
         print()
-        print("═" * 56)
-        house_str = f" of {HOUSES[player.house]['name']}" if player.house else ""
-        print(f"  HUB — {player.name}{house_str}, Year {player.year}, Level {player.level}")
-        print(f"  HP {player.current_hp}/{player.max_hp()}   "
-              f"Mana {player.current_mana}/{player.max_mana()}   "
-              f"Galleons {player.galleons}   Tokens {player.spell_tokens}")
+        print("─" * 56)
+        house_str = f" · {HOUSES[player.house]['name']}" if player.house else ""
+        print(f"  {player.name}{house_str} · Year {player.year} · Level {player.level}")
+        print("─" * 56)
+
+        # --- Stats block ---
+        power = player.get_effective_attr("power")
+        flipendo_base = SPELLS["flipendo"]["base"]
+        dmg_bonus = player.spell_damage_bonus() if hasattr(player, "spell_damage_bonus") else 0
+        base_damage = flipendo_base + power + dmg_bonus
+
+        perception = player.get_effective_attr("perception")
+        accuracy = player.spell_attack_bonus()
+        initiative = player.initiative_bonus()
+
+        col1 = [
+            f"HP: {player.current_hp}/{player.max_hp()}",
+            f"Base Damage: {base_damage}",
+            f"Base PD: {player.physical_defense()}",
+            f"Initiative: +{initiative}",
+            f"Galleons: {player.galleons}",
+        ]
+        col2 = [
+            f"Mana: {player.current_mana}/{player.max_mana()}",
+            f"Base Perception: {perception}",
+            f"Base MD: {player.magical_defense()}",
+            f"Accuracy: +{accuracy}",
+            f"Tokens: {player.spell_tokens}",
+        ]
+        for left, right in zip(col1, col2):
+            print(f"  {left:<24}{right}")
+
         if player.win_streak > 0:
             mult = player.streak_multiplier()
-            print(f"  Win Streak: {player.win_streak}   (XP/Gold ×{mult:.2f})")
+            print(f"  Streak: {player.win_streak}  (XP/Gold ×{mult:.2f})")
+        print("─" * 56)
 
+        # Alerts
         if player.attr_points:
-            print(f"  ⚠ {player.attr_points} unspent Attribute Point(s)")
-        boss_ready = boss_gate_available(player)
+            print(f"  ⚠  {player.attr_points} unspent attribute point(s)")
+        if player.pending_focus_unlock:
+            print(f"  ⚠  Bond Focus unlock available")
+        if player.attr_points or player.pending_focus_unlock:
+            print("─" * 56)
 
-        print("  1. Fight")
-        print("  2. Shops")
-        print("  3. Inventory & Gear")
-        print("  4. Wand & Gear")
-        print("  5. Character Sheet")
-        print("  6. Rest (full restore)")
-        print("  7. Help / How to Play")
-        print("  8. Recent Actions")
-        print("  9. Save Game")
-        if boss_ready:
-            print("  ⚠ 10. FACE YOUR DESTINY")
-        print("  0. Save & Quit")
-        print("═" * 56)
-
-        if boss_ready:
-            print("  The final trial awaits. Type 9 when ready.")
+        # Menu
+        print("  1. ⚔   Battle Arena        Fight or view history")
+        print("  2. 🏪  Diagon Alley        Shops and wand upgrades")
+        print("  3. 📋  Status              Sheet, inventory, points")
+        print("  4. 🛏   Rest                Restore HP and Mana")
+        print("  5. ❓   Help                How to play")
+        print("  6. 💾  Save")
+        print("  0. Exit                     Save & quit")
+        print("─" * 56)
 
         choice = prompt("  > ")
         if choice == "0":
             save_game(player)
+            clear_screen()
             print("\n  Saved. Goodbye, wizard.")
+            return
+        elif choice == "1":
+            battle_arena_flow(player)
+        elif choice == "2":
+            diagon_alley_flow(player)
+        elif choice == "3":
+            status_flow(player)
+        elif choice == "4":
+            rest(player)
+            pause()
+        elif choice == "5":
+            show_help()
+        elif choice == "6":
+            save_game(player)
+            print("\n  Game saved.")
+            pause()
+
+def battle_arena_flow(player):
+    while True:
+        clear_screen()
+        print()
+        print("─" * 56)
+        print("  ⚔  BATTLE ARENA")
+        print("─" * 56)
+        print("  1. Fight              Choose a tier")
+        print("  2. Recent Actions     Last 5 battles")
+
+        boss_ready = boss_gate_available(player)
+        if boss_ready:
+            print("  3. ⚠ FACE YOUR DESTINY — the final trial")
+        print("  0. Back")
+        print("─" * 56)
+
+        choice = prompt("  > ")
+        if choice == "0":
             return
         elif choice == "1":
             fight_flow(player)
         elif choice == "2":
+            show_recent_actions(player)
+        elif choice == "3" and boss_ready:
+            boss_gauntlet_flow(player)
+
+def diagon_alley_flow(player):
+    while True:
+        clear_screen()
+        print()
+        print("─" * 56)
+        print("  🏪  DIAGON ALLEY")
+        print("─" * 56)
+        print(f"  Galleons  {player.galleons}")
+        print(f"  Tokens    {player.spell_tokens}")
+        print("─" * 56)
+        print("  1. Shops              Spells · Potions · Gear")
+        print("  2. Wand & Gear        View & change wand parts")
+        print("  0. Back")
+        print("─" * 56)
+
+        choice = prompt("  > ")
+        if choice == "0":
+            return
+        elif choice == "1":
             shops_flow(player)
-        elif choice == "3":
-            inventory_flow(player)
-        elif choice == "4":
+        elif choice == "2":
             wand_gear_flow(player)
-        elif choice == "5":
+
+def status_flow(player):
+    while True:
+        clear_screen()
+        print()
+        print("─" * 56)
+        print("  📋  STATUS")
+        print("─" * 56)
+        print("  1. Character Sheet")
+        print("  2. Inventory          Potions · Items · Gear")
+        if player.attr_points > 0:
+            print(f"  3. Use Attribute Points ({player.attr_points})")
+        if player.pending_focus_unlock:
+            print(f"  4. Unlock New Bond Focus")
+        print("  0. Back")
+        print("─" * 56)
+
+        choice = prompt("  > ")
+        if choice == "0":
+            return
+        elif choice == "1":
+            clear_screen()
             print()
             print(player.sheet())
             pause()
-        elif choice == "6":
-            rest(player)
-        elif choice == "7":
-            show_help()
-        elif choice == "8":
-            show_recent_actions(player)
-        elif choice == "9":
-            save_game(player)
-            print("  Game saved.")
-        elif choice == "10" and boss_ready:
-            boss_gauntlet_flow(player)
-
+        elif choice == "2":
+            inventory_flow(player)
+        elif choice == "3" and player.attr_points > 0:
+            prompt_spend_points(player)
+        elif choice == "4" and player.pending_focus_unlock:
+            prompt_focus_unlock(player)
 
 # ============================================================
 # FIGHT
@@ -699,6 +871,7 @@ def encounter(player, tier):
         return
 
     enemy = Enemy(key)
+    clear_screen()
     print()
     print(f"  You encounter: {enemy.name}")
     print(f"    Level {enemy.level}   HP {enemy.max_hp}   "
@@ -783,14 +956,18 @@ def prompt_focus_unlock(player):
 
 def shops_flow(player):
     while True:
+        clear_screen()
         print()
-        print("═" * 56)
-        print(f"  SHOPS   (Galleons {player.galleons}   Tokens {player.spell_tokens})")
-        print("═" * 56)
-        print("  1. Spell Token Shop")
-        print("  2. Apothecary")
-        print("  3. Wand Smith")
+        print("─" * 56)
+        print("  🛒  SHOPS")
+        print("─" * 56)
+        print(f"  Galleons  {player.galleons}      Tokens  {player.spell_tokens}")
+        print("─" * 56)
+        print("  1. Spell Token Shop   Learn new spells")
+        print("  2. Apothecary         Potions, items, gear")
+        print("  3. Wand Smith         Permanent wand upgrades")
         print("  0. Back")
+        print("─" * 56)
 
         choice = prompt("  > ")
         if choice == "0":
@@ -810,17 +987,20 @@ def shops_flow(player):
 def wand_gear_flow(player):
     """Wand & Gear menu — view details, change wand parts."""
     while True:
+        clear_screen()
         print()
-        print("═" * 56)
-        print("  WAND & GEAR")
-        print("═" * 56)
+        print("─" * 56)
+        print("  🪄  WAND & GEAR")
+        print("─" * 56)
+        print(f"  Galleons  {player.galleons}")
+        print("─" * 56)
         print("  1. View Wand Details")
         print("  2. View Equipped Gear")
         print(f"  3. Change Wand Wood          ({WAND_WOOD_FEE} G)")
         print(f"  4. Change Wand Core          ({WAND_CORE_FEE} G)")
         print(f"  5. Change Bond Focus         ({WAND_FOCUS_FEE} G)")
         print("  0. Back")
-        print("═" * 56)
+        print("─" * 56)
 
         choice = prompt("  > ")
         if choice == "0":
@@ -839,6 +1019,7 @@ def wand_gear_flow(player):
 
 def show_wand_details(player):
     """Full wand breakdown with all 4 foci progress."""
+    clear_screen()
     print()
     print("═" * 56)
     print("  YOUR WAND")
@@ -913,6 +1094,7 @@ def show_wand_details(player):
 
 def show_gear_details(player):
     """Show equipped gear and its bonuses."""
+    clear_screen()
     print()
     print("═" * 56)
     print("  EQUIPPED GEAR")
@@ -1016,6 +1198,7 @@ def change_wand_focus_flow(player):
 
 def inventory_flow(player):
     while True:
+        clear_screen()
         print()
         print(show_equipped(player))
         print(show_inventory(player))
