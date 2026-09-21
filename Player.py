@@ -1,14 +1,32 @@
 """
-player.py — the Player class.
+Player.py — the Player class.
 
-Handles:
-- Base attributes + effective attribute calculation (base + wand + temp mods)
-- Derived stats (HP, Mana, defenses)
-- Resources (current HP/Mana, Galleons, Spell Tokens)
-- XP and leveling
-- Known spells
-- Wand (wood, core, bond)
-- Status effects (burn, poison, disarmed, etc.)
+The Player tracks:
+- Base attributes (8 stats, clamped per year)
+- Derived stats (HP, Mana, defenses, initiative, spell bonus)
+- Wand: wood + core + bond focus + per-focus bond progress
+- Wand upgrades (permanent purchases from the Wand Smith)
+- Gear (6 equipped slots: body, hands, feet, ring, amulet, wand)
+- Inventory (potions, combat items, unequipped gear)
+- House (Gryffindor / Hufflepuff / Ravenclaw / Slytherin)
+- Year progress (Year 1-7, level caps, attribute caps, spell caps)
+- XP, level, unspent attribute points
+- Status effects (burn, poison, disarmed, weakened, shield, etc.)
+- Temp modifiers (potions, buffs with durations)
+- Win streak (affects XP and Galleon rewards)
+- Battle log (last 20 fights)
+- Bosses defeated (for year transition)
+
+All game constants come from Data.py. This module holds logic only.
+
+Key methods:
+- gain_xp(amount)           — add XP, level up, unlock foci at 3/5/7
+- spend_attr_point(attr)    — spend unspent point, respects year cap
+- learn_spell(key)          — learn spell, respects year spell cap
+- advance_year()            — transition to next year (called by boss flow)
+- change_wand_wood/core/focus(...) — swap wand parts for a fee
+- record_battle_won()       — increment active focus bond progress
+- end_of_turn()             — HP regen, mana regen, tick statuses + temp mods
 """
 
 from Data import (
@@ -169,7 +187,12 @@ class Player:
 
     def max_hp(self):
         eff = self.get_all_effective_attrs()
-        base = 20 + eff["brawn"] * 3 + eff["willpower"] * 2 + self.level * 5
+        base = (
+                25
+                + eff["brawn"] * 3
+                + eff["willpower"] * 2
+                + self.level * 5
+        )
         base += self._house_hp_bonus()
         base += self._bond_bonus("max_hp")
         return base
@@ -183,10 +206,16 @@ class Player:
 
     def max_mana(self):
         eff = self.get_all_effective_attrs()
-        base = 20 + eff["power"] * 2 + eff["control"] * 2 + self.level * 3
+        base = (
+                20
+                + eff["power"] * 2
+                + eff["control"] * 2
+                + eff["intellect"] * 1     # ← NEW
+                + self.level * 3
+        )
         core = WAND_CORES.get(self.wand["core"], {})
         base += core.get("bonus_mana", 0)
-        base += self._wand_upgrade_flat("mana")   # <-- ADD
+        base += self._wand_upgrade_flat("mana")
         return base
 
     def physical_defense(self):
@@ -478,13 +507,14 @@ class Player:
         return self.wand["bond_progress"].get(self.wand["focus"], 0)
 
     def _bond_bonuses(self):
-        """Return the active focus's current bond bonuses."""
+        """Return the active focus's cumulative bond bonuses (all reached levels stack)."""
         wins = self._active_focus_wins()
         levels = self._active_focus_data()["levels"]
         bonuses = {}
         for threshold, bonus in levels:
             if wins >= threshold:
-                bonuses = bonus
+                for key, value in bonus.items():
+                    bonuses[key] = bonuses.get(key, 0) + value
         return bonuses
 
     def _bond_bonus(self, key):
