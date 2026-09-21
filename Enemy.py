@@ -75,6 +75,7 @@ class Enemy:
         self.attack_uses = {}        # {attack_name: times_used}
         self.summons = []            # future use (Death Eater)
         self.slain = False           # set True when HP hits 0
+        self._death_handled = False
 
     # --------------------------------------------------------
     # RESOURCES
