@@ -972,7 +972,7 @@ HOUSES = {
         "attr_bonus": {"brawn": 1, "willpower": 1},
         "passive": "clutch",
         # clutch: below 20% HP → +3 spell damage, +2 attack rolls
-        "passive_data": {"hp_threshold": 0.20, "damage": 3, "attack": 2},
+        "passive_data": {"hp_threshold": 0.30, "damage": 3, "attack": 2},
     },
     "hufflepuff": {
         "name": "Hufflepuff",
