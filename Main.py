@@ -272,6 +272,7 @@ def boss_gate_available(player):
 def boss_gauntlet_flow(player):
     """Fight both bosses in sequence. No retreat."""
     print()
+    clear_screen()
     print("═" * 60)
     print("  ⚠  THE YEAR'S FINAL TRIAL")
     print("═" * 60)
@@ -333,6 +334,7 @@ def boss_gauntlet_flow(player):
 def year_complete(player):
     """Celebration + year transition."""
     print()
+    clear_screen()
     print("═" * 60)
     print("  ★  YEAR 1 COMPLETE  ★")
     print("═" * 60)
@@ -819,7 +821,9 @@ def status_flow(player):
 # ============================================================
 
 def fight_flow(player):
+
     while True:
+        clear_screen()
         print()
         print("═" * 56)
         print("  CHOOSE A TIER")
@@ -973,10 +977,13 @@ def shops_flow(player):
         if choice == "0":
             return
         elif choice == "1":
+            clear_screen()
             menu_spell_shop(player)
         elif choice == "2":
+            clear_screen()
             menu_apothecary(player)
         elif choice == "3":
+            clear_screen()
             menu_wand_shop(player)
 
 
@@ -1124,6 +1131,7 @@ def show_gear_details(player):
 def change_wand_wood_flow(player):
     """Pick a new wood. Fee applies."""
     print()
+    clear_screen()
     print(f"  Current wood: {player.wand['wood'].title()}")
     print(f"  Fee: {WAND_WOOD_FEE} G")
     print()
@@ -1148,6 +1156,7 @@ def change_wand_wood_flow(player):
 
 def change_wand_core_flow(player):
     print()
+    clear_screen()
     print(f"  Current core: {WAND_CORES[player.wand['core']]['name']}")
     print(f"  Fee: {WAND_CORE_FEE} G")
     print()
@@ -1176,6 +1185,7 @@ def change_wand_focus_flow(player):
         return
 
     print()
+    clear_screen()
     print(f"  Current focus: {BOND_FOCI[player.wand['focus']]['name']}")
     print(f"  Fee: {WAND_FOCUS_FEE} G")
     print()
@@ -1225,6 +1235,7 @@ def use_potion_menu(player):
         return
     keys = list(potions.keys())
     print()
+    clear_screen()
     print("  Which potion?")
     for i, k in enumerate(keys, start=1):
         p = POTIONS[k]
@@ -1244,6 +1255,7 @@ def use_potion_menu(player):
 
 
 def equip_menu(player):
+    clear_screen()
     gear = player.inventory.get("gear", {})
     if not gear:
         print("  You have no gear in your bag.")
@@ -1268,6 +1280,7 @@ def equip_menu(player):
 
 
 def unequip_menu(player):
+    clear_screen()
     equipped = [(slot, player.equipped[slot])
                 for slot in GEAR_SLOTS
                 if player.equipped.get(slot)]
@@ -1298,6 +1311,7 @@ def unequip_menu(player):
 # ============================================================
 
 def rest(player):
+    clear_screen()
     if (player.current_hp == player.max_hp()
             and player.current_mana == player.max_mana()):
         print("  You are already at full strength.")
