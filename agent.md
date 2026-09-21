@@ -164,7 +164,7 @@ Permanent mods include: wand wood, wand bond, wand upgrades, gear, house bonus.
 
 | House          | Attribute Bonus             | Passive Bonus                                      |
 |----------------|-----------------------------|----------------------------------------------------|
-| **Gryffindor** | +1 Brawn, +1 Willpower      | Below 20% HP: +3 spell damage, +2 attack rolls     |
+| **Gryffindor** | +1 Brawn, +1 Willpower      | Below 30% HP: +3 spell damage, +2 attack rolls     |
 | **Hufflepuff** | +1 Willpower, +1 Presence   | +2 permanent max HP per new enemy species defeated |
 | **Ravenclaw**  | +1 Intellect, +1 Perception | +1 Spell Token every 4th consecutive win           |
 | **Slytherin**  | +1 Power, +1 Control        | -20% shop buy prices, +10% sell prices             |
