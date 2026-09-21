@@ -15,6 +15,7 @@ env/
 
 # Save files
 savegame.json
+savegame.json.bak
 *.save
 
 # IDE
