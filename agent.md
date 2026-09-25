@@ -209,12 +209,30 @@ Unlocked at Level 2. Full stock in `Data.py`.
 
 ## 13. YEAR PROGRESSION
 
-| Year | Levels | Attr Cap | Spell Cap | Boss Gate        |
-|------|--------|----------|-----------|------------------|
-| 1    | 1–10   | 10       | 5         | Aragog, Voldemort |
-| 2    | 11–20  | 12       | 7         | TBD              |
-| 3    | 21–30  | 14       | 9         | TBD              |
-| 4+   | …      | …        | …         | TBD              |
+Loosely follows the book/film timeline for setting and signature
+villains — no text is reproduced, only the established characters,
+locations and creatures, same as Year 1's Aragog/Voldemort already do.
+Every year reuses the same 6-tier enemy structure at **32 enemies/year**
+(7 very_weak / 7 weak / 6 average / 6 strong / 4 very_strong / 2 boss)
+to keep balancing math and content workload consistent across all 7 —
+enemies are scoped to a year by their `level` falling inside that
+year's `YEAR_LEVEL_RANGE` (see `Enemy.enemies_of_tier`), not by a
+separate year field.
+
+| Year | Levels | Attr Cap | Spell Cap | Setting                                   | Boss Gate                          | New Mechanic |
+|------|--------|----------|-----------|--------------------------------------------|-------------------------------------|--------------|
+| 1    | 1–10   | 10       | 5         | Philosopher's Stone — Forbidden Forest     | Aragog, Voldemort (Quirrell)        | — (baseline) |
+| 2    | 11–20  | 12       | 7         | Chamber of Secrets — Chamber, Dueling Club | Basilisk, Tom Riddle (memory)       | Petrify status (bypasses normal defense unless cured) |
+| 3    | 21–30  | 14       | 9         | Prisoner of Azkaban — Azkaban, Hogsmeade   | Dementor swarm, Sirius Black (non-lethal surrender boss) | Fear/Despair status (drains mana, not HP); Patronus spell type |
+| 4    | 31–40  | 16       | 11        | Goblet of Fire — Triwizard maze            | Hungarian Horntail, Death Eater vanguard | Multi-phase boss (HP-gated behavior change) |
+| 5    | 41–50  | 18       | 13        | Order of the Phoenix — Dept. of Mysteries  | Bellatrix Lestrange, Dolores Umbridge | Wider enemy debuff variety |
+| 6    | 51–60  | 20       | 15        | Half-Blood Prince — Astronomy Tower, cave  | Inferi swarm, Draco Malfoy (duel)   | Environmental hazard (per-turn HP drain independent of enemies) |
+| 7    | 61–70  | 22       | 17        | Deathly Hallows — Gringotts, Battle of Hogwarts | Nagini, Lord Voldemort (final)  | Full gauntlet — multiple boss fights back to back, no rest |
+
+Status as of this table: **Year 1 fully implemented. Years 2–7 are this
+roadmap only — no enemy/spell/boss data exists for them yet.** Building
+order is sequential (Year 2 next), each year fully implemented and
+verified before starting the next.
 
 **Year transition (after bosses):**
 - +5 Attribute Points
@@ -226,8 +244,16 @@ Unlocked at Level 2. Full stock in `Data.py`.
   battle log, discovered species
 
 **Boss trigger:** player reaches the year's finale level (Level 11 for
-Year 1) and hasn't beaten the boss pair yet. Gauntlet runs both bosses
-in sequence. No retreat. Loss = 50% gold penalty + hospital wing.
+Year 1, scaling per year) and hasn't beaten that year's boss pair yet
+(`Data.BOSS_GAUNTLET_BY_YEAR`). Gauntlet runs bosses in sequence. No
+retreat. Loss = 50% gold penalty + hospital wing. A year with no entry
+in `BOSS_GAUNTLET_BY_YEAR` has no boss gate yet — progress simply stops
+at that year's cap until content is added.
+
+**Year 7 completion:** `Player.advance_year()` returns a terminal
+summary (`{"year": 7, "message": ...}`) instead of a new-year summary.
+Both front ends must check for `"new_year" in summary` before reading
+year-transition fields.
 
 ---
 
@@ -288,7 +314,8 @@ wizard_rpg/
 ## 18. DEFERRED / ROADMAP
 
 - Classes & festivals (XP events + temp modifiers)
-- Year 2+ content (spells, enemies, areas)
+- Year 2–7 content (spells, enemies, bosses, areas) — see §13 for the
+  per-year plan; build order is sequential starting with Year 2
 - Story, quests, and areas
 - Multi-slot saves
 - First-clear XP bonus + diminishing returns
