@@ -638,6 +638,11 @@ def _apply_save_data(data, source_path):
     p.year_bonuses       = data.get("year_bonuses", {})
     p.pending_focus_unlock = data.get("pending_focus_unlock", False)
 
+    # Re-anchor the max HP/mana baseline to the loaded state so the next
+    # stat change computes a correct delta (see Player._clamp_resources).
+    p._last_max_hp = p.max_hp()
+    p._last_max_mana = p.max_mana()
+
     print(f"\n  Loaded {p.name} (Year {p.year}, Level {p.level}).")
     return p
 

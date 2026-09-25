@@ -129,6 +129,12 @@ class Player:
         self.current_hp = self.max_hp()
         self.current_mana = self.max_mana()
 
+        # Baseline for _clamp_resources() to diff against — lets a max
+        # HP/mana increase raise current HP/mana by the same delta
+        # instead of only ever being able to lower it. See _clamp_resources.
+        self._last_max_hp = self.current_hp
+        self._last_max_mana = self.current_mana
+
     # --------------------------------------------------------
     # ATTRIBUTES
     # --------------------------------------------------------
@@ -315,8 +321,25 @@ class Player:
         return self.current_hp > 0
 
     def _clamp_resources(self):
-        self.current_hp = min(self.current_hp, self.max_hp())
-        self.current_mana = min(self.current_mana, self.max_mana())
+        """Keep current HP/mana in step with max HP/mana whenever
+        something changes the max (attribute point, wand swap, bond
+        level-up, house bonus like Hufflepuff's per-species HP).
+
+        Applies the *change* in max to current, rather than only ever
+        clamping current down to max — so a player at 50/50 who gains
+        +3 max HP ends up at 53/53, not stuck at 50/53. A player at
+        30/50 who gains the same +3 ends up at 33/53, preserving how
+        much damage they'd actually taken. Works symmetrically if max
+        ever drops (current is pulled down by the same delta, floored
+        at 0).
+        """
+        new_max_hp = self.max_hp()
+        self.current_hp = max(0, min(new_max_hp, self.current_hp + (new_max_hp - self._last_max_hp)))
+        self._last_max_hp = new_max_hp
+
+        new_max_mana = self.max_mana()
+        self.current_mana = max(0, min(new_max_mana, self.current_mana + (new_max_mana - self._last_max_mana)))
+        self._last_max_mana = new_max_mana
 
     # --------------------------------------------------------
     # XP & LEVELING

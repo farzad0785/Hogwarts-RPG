@@ -136,6 +136,7 @@ class HogwartsApp(tk.Tk):
         self.nav_buttons = {}
         self.current_page = "home"
         self.creation_house = None
+        self.battle_locked = False
         self.creation_rerolled = False
         self._configure_styles()
         self.house_images = self._load_house_images()
@@ -526,7 +527,20 @@ class HogwartsApp(tk.Tk):
             text=f"{self.player.galleons} Galleons     {self.player.spell_tokens} Tokens"
         )
 
+    def set_battle_lock(self, locked):
+        """Lock/unlock the sidebar while a duel is in progress. A live
+        BattleView has no way to resolve itself if the player just
+        navigates away via the sidebar — this closes that hole,
+        including for bosses, which must never be escapable this way."""
+        self.battle_locked = locked
+        state = "disabled" if locked else "normal"
+        for button in self.nav_buttons.values():
+            button.configure(state=state)
+
     def switch_page(self, key):
+        if self.battle_locked:
+            messagebox.showwarning("Duel in progress", "You can't leave until this duel is resolved. Use Flee (if available) or finish the fight.")
+            return
         self.current_page = key
         for name, button in self.nav_buttons.items():
             active = name == key
@@ -1186,6 +1200,7 @@ class BattleView(tk.Frame):
         self.result = None
         self._build()
         self.session = BattleSession(self, self.player, self.enemy)
+        self.app.set_battle_lock(True)
         self.after(100, self.session.start)
 
     def _build(self):
@@ -1361,6 +1376,7 @@ class BattleView(tk.Frame):
     def leave_battle(self):
         if not self.result:
             return
+        self.app.set_battle_lock(False)
         if self.result["result"] == "lose":
             self.player.full_restore()
             messagebox.showinfo("Hospital Wing", "You wake in the hospital wing, fully restored.")
