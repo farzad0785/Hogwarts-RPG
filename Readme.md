@@ -1,15 +1,29 @@
-cat > readme.md << 'EOF'
 # Hogwarts: A Wizard's Journey
 
 A text-based RPG set in the Harry Potter universe. Fight duels, creatures, and dark wizards. Level up, learn spells, upgrade your wand, and rise from a first-year student to a legendary duelist.
 
-Built in Python. Runs in the terminal.
+Built in Python. Play through the graphical interface or in the terminal.
 
 ---
 
 ## Quick Start
+
+### Graphical interface (recommended)
+
 ```bash
-    python main.py
+python GUI.py
+```
+
+On Windows you can also double-click `run_gui.bat`.
+
+The Tkinter interface includes character creation, house sorting, interactive
+combat, shops, inventory and gear management, character progression, and
+save/load. It uses only the Python standard library.
+
+### Terminal interface
+
+```bash
+python Main.py
 ```
 You'll see a title screen. Choose New Game, enter your name, get sorted into a house, and pick your wand.
 
@@ -225,6 +239,9 @@ Wand upgrades you buy from the Wand Smith are **permanent** — they never go aw
     wizard_rpg/
     ├── agent.md          # Design document (developer reference)
     ├── readme.md         # This file
+    ├── GUI.py            # Tkinter graphical interface
+    ├── run_gui.bat       # Windows GUI launcher
+    ├── assets/houses/    # Original house crest artwork
     ├── Data.py           # All game constants
     ├── Player.py         # Player class
     ├── Enemy.py          # Enemy class
@@ -271,4 +288,3 @@ Personal project. Do what you want with it.
 ---
 
 Made with Python and a love for wizard duels.
-EOF

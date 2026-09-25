@@ -14,7 +14,7 @@ Fight → earn XP, Galleons, Spell Tokens
 - Tone: dramatic, swingy, replayable
 - Non-lethal duels for students
 - No permanent death (lose = hospital wing)
-- Terminal-based (Python); FastAPI port possible later
+- Two Python front ends: Tkinter GUI and terminal; FastAPI port possible later
 
 ---
 
@@ -667,10 +667,24 @@ Single function in `main.py` → `show_help()`.
 | Wand upgrades kept                   | Forever                              | Player investment respected             |
 ---
 
+## 14.5 TKINTER UI
+
+- `GUI.py` is a graphical front end built with the Python standard library.
+- It shares the existing Player, Enemy, Spells, Items, Shop, and Combat rules.
+- The terminal front end in `Main.py` remains available and unchanged.
+- The GUI includes character creation, Sorting Hat, dashboard, interactive
+  combat, inventory and gear, shops, wand management, progression, and saves.
+- `run_gui.bat` is the Windows launcher.
+
+---
+
 ## 15. FILE STRUCTURE
 wizard_rpg\
 ├── Agent.md # this design doc\
 ├── Readme.md # player-facing readme\
+├── GUI.py # Tkinter graphical interface\
+├── run_gui.bat # Windows GUI launcher\
+├── assets/houses/ # original house crest artwork\
 ├── Data.py # all constants (attributes, spells, enemies, items, houses)\
 ├── Player.py # Player class\
 ├── Enemy.py # Enemy class\
