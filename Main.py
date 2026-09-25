@@ -30,10 +30,10 @@ from Data import (
     HOUSES, HOUSE_KEYS,
     BOND_FOCI, BOND_FOCUS_KEYS, BOND_FOCUS_UNLOCK_LEVELS,
     WAND_WOOD_FEE, WAND_CORE_FEE, WAND_FOCUS_FEE,
-    BOND_NAMES, WAND_UPGRADES
+    BOND_NAMES, WAND_UPGRADES, BOSS_GAUNTLET_BY_YEAR
 )
 from Player import Player, WAND_WOOD_BONUS, WAND_CORES
-from Enemy import Enemy, random_enemy_key
+from Enemy import Enemy, random_enemy_key, enemies_of_tier
 from Combat import run_battle
 from Items import (
     add_to_inventory, use_potion, equip_gear, unequip_gear,
@@ -255,33 +255,37 @@ def show_recent_actions(player):
     print("═" * 60)
     pause()
 
-BOSS_GAUNTLET = ["aragog", "voldemort"]
+def current_boss_gauntlet(player):
+    """Boss keys for the player's current year, or [] if that year has no
+    boss content yet."""
+    return BOSS_GAUNTLET_BY_YEAR.get(player.year, [])
+
 
 def boss_gate_available(player):
-    """True if the player is at Year 1 boss trigger and hasn't beaten them."""
-    if player.year != 1:
+    """True if the player is at their year's finale level and hasn't
+    beaten that year's boss gauntlet yet."""
+    gauntlet = current_boss_gauntlet(player)
+    if not gauntlet:
         return False
     if not player.at_year_finale_level():
         return False
-    for boss_key in BOSS_GAUNTLET:
-        if boss_key not in player.bosses_defeated:
-            return True
-    return False
+    return any(b not in player.bosses_defeated for b in gauntlet)
 
 
 def boss_gauntlet_flow(player):
-    """Fight both bosses in sequence. No retreat."""
+    """Fight this year's bosses in sequence. No retreat."""
+    gauntlet = current_boss_gauntlet(player)
     print()
     clear_screen()
     print("═" * 60)
     print("  ⚠  THE YEAR'S FINAL TRIAL")
     print("═" * 60)
     print()
-    print("  The school year has ended. Two dark forces await you.")
+    print("  The school year has ended. Dark forces await you.")
     print("  There is no retreat. Defeat means starting over.")
     print()
-    print("  Boss 1: Aragog (Forbidden Forest)")
-    print("  Boss 2: Lord Voldemort (Chamber of Secrets)")
+    for i, boss_key in enumerate(gauntlet, start=1):
+        print(f"  Boss {i}: {ENEMIES[boss_key]['name']}")
     print()
     choice = prompt("  Face your destiny? (y/n) > ").lower()
     if choice not in ("y", "yes"):
@@ -289,7 +293,7 @@ def boss_gauntlet_flow(player):
         return
 
     rng = random.Random()
-    for boss_key in BOSS_GAUNTLET:
+    for boss_key in gauntlet:
         if boss_key in player.bosses_defeated:
             continue
 
@@ -333,10 +337,11 @@ def boss_gauntlet_flow(player):
 
 def year_complete(player):
     """Celebration + year transition."""
+    finishing_year = player.year
     print()
     clear_screen()
     print("═" * 60)
-    print("  ★  YEAR 1 COMPLETE  ★")
+    print(f"  ★  YEAR {finishing_year} COMPLETE  ★")
     print("═" * 60)
     print()
     print(f"  Congratulations, {player.name} of {HOUSES[player.house]['name']}.")
@@ -346,7 +351,19 @@ def year_complete(player):
     print(f"  Spells known:      {len(player.known_spells)}")
     print(f"  Wand bond:         {player.bond_name()}")
     print()
-    pause("  Press Enter to begin Year 2. ")
+
+    if finishing_year >= 7:
+        pause("  Press Enter to continue. ")
+        player.advance_year()  # records the "finished Hogwarts" state
+        print()
+        print("═" * 60)
+        print("  ★  YOU HAVE FINISHED HOGWARTS  ★")
+        print("═" * 60)
+        print()
+        print("  Seven years, countless duels. Your story here is complete.")
+        return
+
+    pause(f"  Press Enter to begin Year {finishing_year + 1}. ")
 
     summary = player.advance_year()
 
@@ -832,7 +849,7 @@ def fight_flow(player):
         available = []
         for tier in TIER_ORDER:
             need = TIER_MIN_LEVEL[tier]
-            count = len(ENEMIES_BY_TIER.get(tier, []))
+            count = len(enemies_of_tier(tier, player.year))
             if player.level < need:
                 print(f"    -   {TIER_DISPLAY[tier]:<12}  (need Level {need})")
             else:
@@ -869,7 +886,7 @@ def fight_flow(player):
 
 def encounter(player, tier):
     rng = random.Random()
-    key = random_enemy_key(tier, rng)
+    key = random_enemy_key(tier, rng, player.year)
     if key is None:
         print("  No enemies in this tier.")
         return

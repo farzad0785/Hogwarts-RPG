@@ -106,6 +106,15 @@ SPELL_CAP_BY_YEAR = {
 ATTR_POINTS_PER_YEAR = 5
 HOUSE_ATTR_BONUS_PER_YEAR = 1   # +1 to each of the house's two attrs
 
+# Each year's finale boss pair, keyed by boss enemy key (must exist in
+# ENEMIES with tier="boss" and a level inside that year's range).
+# A year with no entry here simply has no boss gate yet — advance_year()
+# is never triggered for it, so progress just stops at that year's cap
+# until content is added. Fill these in as each year is built.
+BOSS_GAUNTLET_BY_YEAR = {
+    1: ["aragog", "voldemort"],
+}
+
 # ============================================================
 # ITEMS
 # ============================================================

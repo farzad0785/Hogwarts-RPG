@@ -9,7 +9,7 @@ Handles:
 - Reward payout
 """
 
-from Data import ENEMIES, ENEMIES_BY_TIER, STATUS_EFFECTS, MANA_REGEN_PER_TURN
+from Data import ENEMIES, ENEMIES_BY_TIER, STATUS_EFFECTS, MANA_REGEN_PER_TURN, YEAR_LEVEL_RANGE
 
 
 # ============================================================
@@ -405,14 +405,25 @@ def make_enemy(key):
     return Enemy(key)
 
 
-def enemies_of_tier(tier):
-    """Return list of enemy keys for a tier."""
-    return list(ENEMIES_BY_TIER.get(tier, []))
+def enemies_of_tier(tier, year=None):
+    """Return list of enemy keys for a tier.
+
+    If `year` is given, only enemies whose `level` falls inside that
+    year's level range (YEAR_LEVEL_RANGE) are returned — this is how
+    Year 2+ enemies stay separate from Year 1's roster despite sharing
+    the same tier names. `year=None` returns every enemy in the tier,
+    across all years (useful for tooling/tests).
+    """
+    keys = ENEMIES_BY_TIER.get(tier, [])
+    if year is None:
+        return list(keys)
+    lo, hi = YEAR_LEVEL_RANGE[year]
+    return [k for k in keys if lo <= ENEMIES[k]["level"] <= hi]
 
 
-def random_enemy_key(tier, rng):
-    """Pick a random enemy key from a tier."""
-    keys = enemies_of_tier(tier)
+def random_enemy_key(tier, rng, year=None):
+    """Pick a random enemy key from a tier, scoped to `year` if given."""
+    keys = enemies_of_tier(tier, year)
     if not keys:
         return None
     return rng.choice(keys)

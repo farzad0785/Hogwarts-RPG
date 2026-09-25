@@ -31,6 +31,7 @@ from Data import (
     ATTR_DISPLAY,
     BOND_FOCI,
     BOND_FOCUS_KEYS,
+    BOSS_GAUNTLET_BY_YEAR,
     COMBAT_ITEMS,
     ENEMIES,
     ENEMIES_BY_TIER,
@@ -47,9 +48,9 @@ from Data import (
     WAND_WOOD_FEE,
     XP_TO_NEXT,
 )
-from Enemy import Enemy, random_enemy_key
+from Enemy import Enemy, random_enemy_key, enemies_of_tier
 from Items import equip_gear, inventory_count, unequip_gear, use_combat_item, use_potion
-from Main import SAVE_FILE, boss_gate_available, save_game, try_load
+from Main import SAVE_FILE, boss_gate_available, current_boss_gauntlet, save_game, try_load
 from Player import Player
 from Shop import _buy_multiplier, buy_item, buy_wand_upgrade, learn_spell, sell_item
 from Spells import cast_spell
@@ -669,7 +670,7 @@ class HogwartsApp(tk.Tk):
             card.grid(row=index // 2, column=index % 2, sticky="nsew", padx=7, pady=7)
             available = self.player.level >= level
             self.label(card, name, 14, COLORS["text"] if available else COLORS["muted"], "bold").pack(anchor="w", padx=20, pady=(17, 3))
-            count = len(ENEMIES_BY_TIER.get(key, []))
+            count = len(enemies_of_tier(key, self.player.year))
             self.label(card, f"{detail}  •  {count} opponents", 9, COLORS["muted"]).pack(anchor="w", padx=20)
             state = "normal" if available else "disabled"
             text = "Find an opponent" if available else f"Requires Level {level}"
@@ -679,17 +680,17 @@ class HogwartsApp(tk.Tk):
             boss = self.card(grid)
             boss.grid(row=3, column=0, columnspan=2, sticky="ew", padx=7, pady=12)
             self.label(boss, "THE YEAR'S FINAL TRIAL", 14, COLORS["gold"], "bold").pack(anchor="w", padx=20, pady=(16, 3))
-            remaining = [ENEMIES[k]["name"] for k in ("aragog", "voldemort") if k not in self.player.bosses_defeated]
+            remaining = [ENEMIES[k]["name"] for k in current_boss_gauntlet(self.player) if k not in self.player.bosses_defeated]
             self.label(boss, "Remaining: " + ", ".join(remaining), 9, COLORS["muted"]).pack(anchor="w", padx=20)
             self.primary_button(boss, "Face your destiny", self.prepare_boss).pack(anchor="w", padx=20, pady=16)
 
     def prepare_encounter(self, tier):
-        key = random_enemy_key(tier, random.Random())
+        key = random_enemy_key(tier, random.Random(), self.player.year)
         if key:
             self.render_encounter(key)
 
     def prepare_boss(self):
-        key = next((k for k in ("aragog", "voldemort") if k not in self.player.bosses_defeated), None)
+        key = next((k for k in current_boss_gauntlet(self.player) if k not in self.player.bosses_defeated), None)
         if key:
             self.render_encounter(key, boss=True)
 
@@ -1364,7 +1365,7 @@ class BattleView(tk.Frame):
             self.player.full_restore()
             messagebox.showinfo("Hospital Wing", "You wake in the hospital wing, fully restored.")
         if self.is_boss and self.result["result"] == "win":
-            remaining = [k for k in ("aragog", "voldemort") if k not in self.player.bosses_defeated]
+            remaining = [k for k in current_boss_gauntlet(self.player) if k not in self.player.bosses_defeated]
             if remaining:
                 self.player.full_restore()
                 messagebox.showinfo("Final Trial", "You catch your breath. One final opponent remains.")
@@ -1378,6 +1379,11 @@ class BattleView(tk.Frame):
                         f"Year {summary['old_year']} complete!\n\nYear {summary['new_year']} begins.\n"
                         f"+{summary['attr_points_gained']} attribute points\n"
                         f"Attribute cap: {summary['new_attr_cap']}",
+                    )
+                else:
+                    messagebox.showinfo(
+                        "Hogwarts Complete",
+                        "Seven years, countless duels. Your story here is complete.",
                     )
         self.app.switch_page("battle")
 
