@@ -447,12 +447,14 @@ def create_character():
     for i, fk in enumerate(focus_keys, start=1):
         f = BOND_FOCI[fk]
         print(f"    {i}. {f['name']:<22}  {f['description']}")
+        print(f"         {describe_bond_levels(f)}")
     print()
     focus = choose_from(focus_keys, "focus")
 
     # ---- Build player ----
     p = Player(name=name, wand_wood=wood, wand_core=core, wand_focus=focus)
     p.house = house_key
+    p._clamp_resources()  # house attr bonus changes max HP/mana; sync current to match
     add_to_inventory(p, "potions", "healing_draught", 1)
 
     print()
@@ -526,6 +528,18 @@ def describe_core(info):
     if info.get("execute_bonus"):
         parts.append(f"+{info['execute_bonus']} dmg vs wounded")
     return ", ".join(parts)
+
+
+def describe_bond_levels(focus_info):
+    """One-line summary of a Bond Focus's level-up bonuses, e.g.
+    'Lv5: +1 spell_damage  Lv10: +1 attack_rolls  ...'"""
+    parts = []
+    for level, bonuses in focus_info["levels"]:
+        if not bonuses:
+            continue
+        bonus_str = ", ".join(f"+{v} {k}" for k, v in bonuses.items())
+        parts.append(f"Lv{level}: {bonus_str}")
+    return "  ".join(parts)
 
 
 def choose_from(keys, label):
@@ -1116,6 +1130,10 @@ def show_wand_details(player):
         up = WAND_UPGRADES.get(up_key, {})
         if up:
             print(f"    {up['name']}: {'effect active'}")
+
+    print()
+    print(f"  ── {focus_data['name'].upper()} — FULL LEVEL TABLE ──")
+    print(f"    {describe_bond_levels(focus_data)}")
 
     print("═" * 56)
     pause()

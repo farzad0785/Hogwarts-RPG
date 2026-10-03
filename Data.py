@@ -277,7 +277,7 @@ SPELLS = {
         "base": 6,
         "scaling": ["power"],
         "effect": {"name": "weakened", "amount": -2, "duration": 1},
-        "token_cost": 1,
+        "token_cost": 2,
         "description": "Knockback jinx. Cheap damage, weakens enemy's next attack.",
     },
     "expelliarmus": {
@@ -287,7 +287,7 @@ SPELLS = {
         "base": 3,
         "scaling": ["control"],
         "effect": {"name": "disarmed", "duration": 1},
-        "token_cost": 3,
+        "token_cost": 4,
         "description": "Disarming charm. Low damage, but enemy loses their next turn.",
     },
     "protego": {
@@ -297,7 +297,7 @@ SPELLS = {
         "base": 0,
         "scaling": [],
         "effect": {"name": "shield", "reduce": 0.60, "duration": 1},
-        "token_cost": 4,
+        "token_cost": 5,
         "description": "Shield charm. Blocks the next spell, or reduces damage by 60% this turn.",
     },
     "incendio": {
@@ -307,7 +307,7 @@ SPELLS = {
         "base": 16,
         "scaling": ["power"],
         "effect": {"name": "burn", "damage": 3, "duration": 3},
-        "token_cost": 5,
+        "token_cost": 6,
         "description": "Fire-making spell. Heavy damage plus burn over 3 turns.",
     },
     "episkey": {
@@ -317,7 +317,7 @@ SPELLS = {
         "base": 10,
         "scaling": ["intellect", "willpower"],
         "effect": None,
-        "token_cost": 3,
+        "token_cost": 4,
         "description": "Healing charm. Restores HP to yourself.",
     },
 }
@@ -999,7 +999,7 @@ HOUSES = {
         "attr_bonus": {"intellect": 1, "perception": 1},
         "passive": "streak_token",
         # +1 token every 4th consecutive win
-        "passive_data": {"streak_interval": 4, "tokens": 1},
+        "passive_data": {"streak_interval": 5, "tokens": 1},
     },
     "slytherin": {
         "name": "Slytherin",

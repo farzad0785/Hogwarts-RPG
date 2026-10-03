@@ -93,6 +93,34 @@ def clear_children(widget):
         child.destroy()
 
 
+def describe_core(info):
+    """Short numeric summary of a wand core's effect, e.g. '+3 Mana, +1 HP/turn'."""
+    parts = []
+    if info.get("bonus_mana"):
+        parts.append(f"+{info['bonus_mana']} Mana")
+    if info.get("hp_regen"):
+        parts.append(f"+{info['hp_regen']} HP/turn")
+    if info.get("damage_modifier"):
+        parts.append(f"{info['damage_modifier']:+d} Damage")
+    if info.get("accuracy_modifier"):
+        parts.append(f"{info['accuracy_modifier']:+d} Accuracy")
+    if info.get("execute_bonus"):
+        parts.append(f"+{info['execute_bonus']} dmg vs wounded")
+    return ", ".join(parts)
+
+
+def describe_bond_levels(focus_info):
+    """One-line summary of a Bond Focus's level-up bonuses, e.g.
+    'Lv5: +1 spell_damage  Lv10: +1 attack_rolls  ...'"""
+    parts = []
+    for level, bonuses in focus_info["levels"]:
+        if not bonuses:
+            continue
+        bonus_str = ", ".join(f"+{v} {k}" for k, v in bonuses.items())
+        parts.append(f"Lv{level}: {bonus_str}")
+    return "  ".join(parts)
+
+
 class ScrollFrame(tk.Frame):
     """A themed vertically scrollable frame."""
 
@@ -373,12 +401,16 @@ class HogwartsApp(tk.Tk):
         self.name_entry.insert(0, "Student")
 
         self.wood_values = {f"{key.title()}  (+1 {attr.title()})": key for key, attr in WAND_WOOD_BONUS.items()}
-        self.core_values = {info["name"]: key for key, info in WAND_CORES.items()}
+        self.core_values = {f"{info['name']}  ({describe_core(info)})": key for key, info in WAND_CORES.items()}
         self.focus_values = {info["name"]: key for key, info in BOND_FOCI.items()}
 
         self.wood_combo = self._creation_combo(fields, "WAND WOOD", self.wood_values)
         self.core_combo = self._creation_combo(fields, "WAND CORE", self.core_values)
         self.focus_combo = self._creation_combo(fields, "BOND FOCUS", self.focus_values)
+        self.focus_detail = self.label(fields, "", 8, COLORS["muted"], wraplength=360, justify="left")
+        self.focus_detail.pack(anchor="w", pady=(0, 16))
+        self.focus_combo.bind("<<ComboboxSelected>>", self._update_focus_detail)
+        self._update_focus_detail()
 
         sort_inner = tk.Frame(sorting, bg=COLORS["panel"])
         sort_inner.pack(fill="both", expand=True, padx=32, pady=35)
@@ -409,6 +441,12 @@ class HogwartsApp(tk.Tk):
         combo.current(0)
         combo.pack(fill="x", pady=(5, 16))
         return combo
+
+    def _update_focus_detail(self, event=None):
+        """Show the full level-up table for whichever Bond Focus is
+        currently selected, so its exact attrs are visible before picking."""
+        key = self.focus_values[self.focus_combo.get()]
+        self.focus_detail.configure(text=describe_bond_levels(BOND_FOCI[key]))
 
     def sort_house(self):
         options = list(HOUSES)
@@ -444,6 +482,7 @@ class HogwartsApp(tk.Tk):
         focus = self.focus_values[self.focus_combo.get()]
         self.player = Player(name=name, wand_wood=wood, wand_core=core, wand_focus=focus)
         self.player.house = self.creation_house
+        self.player._clamp_resources()  # house attr bonus changes max HP/mana; sync current to match
         from Items import add_to_inventory
 
         add_to_inventory(self.player, "potions", "healing_draught", 1)
@@ -952,9 +991,17 @@ class HogwartsApp(tk.Tk):
         self.section_heading(right, "Wand", f"Bond: {self.player.bond_name()} • {self.player.bond_wins_total()} wins")
         wand = self.card(right)
         wand.pack(fill="x")
-        self._wand_row(wand, "Wood", self.player.wand["wood"].title(), f"Change • {WAND_WOOD_FEE} G", self.change_wood_dialog)
-        self._wand_row(wand, "Core", WAND_CORES[self.player.wand["core"]]["name"], f"Change • {WAND_CORE_FEE} G", self.change_core_dialog)
-        self._wand_row(wand, "Focus", BOND_FOCI[self.player.wand["focus"]]["name"], f"Change • {WAND_FOCUS_FEE} G", self.change_focus_dialog)
+        wood_attr = WAND_WOOD_BONUS.get(self.player.wand["wood"])
+        wood_label = f"{self.player.wand['wood'].title()}  (+1 {wood_attr.title()})" if wood_attr else self.player.wand["wood"].title()
+        core_info = WAND_CORES[self.player.wand["core"]]
+        core_label = f"{core_info['name']}  ({describe_core(core_info)})"
+        focus_info = BOND_FOCI[self.player.wand["focus"]]
+        self._wand_row(wand, "Wood", wood_label, f"Change • {WAND_WOOD_FEE} G", self.change_wood_dialog)
+        self._wand_row(wand, "Core", core_label, f"Change • {WAND_CORE_FEE} G", self.change_core_dialog)
+        self._wand_row(wand, "Focus", focus_info["name"], f"Change • {WAND_FOCUS_FEE} G", self.change_focus_dialog)
+        self.label(wand, describe_bond_levels(focus_info), 8, COLORS["muted"], wraplength=340, justify="left").pack(
+            anchor="w", padx=16, pady=(0, 12)
+        )
 
         if self.player.pending_focus_unlock and self.player.locked_foci():
             unlock = self.card(right)
